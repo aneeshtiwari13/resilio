@@ -1,0 +1,34 @@
+# Build and Packaging Outputs
+target/
+*.jar
+*.war
+*.class
+
+# Node / Frontend Artifacts
+node_modules/
+dist/
+build/
+.npm
+.vite
+
+# Environment and Secrets
+.env
+*.pem
+*.key
+*.p12
+
+# IDE and Editor Files
+.idea/
+*.iml
+.vscode/
+*.swp
+*.DS_Store
+
+# Logs and Crash Dumps
+*.log
+hs_err_pid*
+target/surefire-reports/
+target/screenshots/
+
+# OS specific
+Thumbs.db

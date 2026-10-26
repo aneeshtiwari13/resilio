@@ -54,20 +54,91 @@ export interface HealthMonitorStatus {
   recentLogs: HealthCheckLog[];
 }
 
-export interface RecoveryEvent {
+export interface IncidentTimelineEvent {
   id: number;
-  failureCategory: string;
-  evidenceDetails: string;
-  selectedAction: string;
-  executionOutcome: 'IN_PROGRESS' | 'SUCCESS' | 'FAILED';
-  verificationResult: 'VERIFIED' | 'FAILED' | 'PENDING';
-  previousWorkingVersion: string;
-  failedCandidateVersion: string;
-  restoredVersion: string;
-  startedAt: string;
-  completedAt?: string;
-  durationSeconds?: number;
-  operatorTriggered: boolean;
+  timestamp: string;
+  eventType: string;
+  stageName: string;
+  status: 'INFO' | 'SUCCESS' | 'FAILURE' | 'WARNING';
+  description: string;
+  details?: string;
+}
+
+export interface Incident {
+  id: number;
+  incidentId: string;
+  jenkinsBuild: string;
+  failureCategory:
+    | 'BUILD_FAILURE'
+    | 'UNIT_TEST_FAILURE'
+    | 'CONTAINER_STARTUP_FAILURE'
+    | 'HEALTH_CHECK_FAILURE'
+    | 'SELENIUM_REGRESSION_FAILURE'
+    | 'DEPLOYMENT_FAILURE'
+    | 'UNKNOWN_FAILURE'
+    | string;
+  failedStage: string;
+  errorEvidence: string;
+  candidateReleaseId: string;
+  activeReleaseId: string;
+  recoveryDecision:
+    | 'CANDIDATE_REJECTED'
+    | 'NO_DEPLOYMENT_REQUIRED'
+    | 'EXECUTE_ROLLBACK'
+    | 'MANUAL_INTERVENTION_REQUIRED'
+    | 'RECOVERY_FAILED'
+    | string;
+  recoveryAction: string;
+  actionStartedAt: string;
+  actionCompletedAt?: string;
+  recoveryDurationSeconds?: number;
+  verificationResults?: string;
+  finalStatus:
+    | 'RECOVERED'
+    | 'RECOVERY_FAILED'
+    | 'CANDIDATE_REJECTED'
+    | 'NO_DEPLOYMENT_REQUIRED'
+    | 'MANUAL_INTERVENTION_REQUIRED'
+    | 'RECOVERY_IN_PROGRESS';
+  explanation: string;
+  retryEligible: boolean;
+  retryCount: number;
+  timelineEvents: IncidentTimelineEvent[];
+}
+
+export interface ReleaseRecord {
+  id: number;
+  releaseId: string;
+  versionTag: string;
+  commitSha: string;
+  imageTag: string;
+  deploymentSlot: 'BLUE' | 'GREEN';
+  deployedAt: string;
+  promotedAt?: string;
+  verifiedAt?: string;
+  jenkinsBuildRef: string;
+  healthCheckStatus: 'PASSED' | 'FAILED' | 'PENDING';
+  seleniumSmokeStatus: 'PASSED' | 'FAILED' | 'SKIPPED' | 'PENDING';
+  activationStatus: 'ACTIVE' | 'STANDBY' | 'REJECTED' | 'ROLLED_BACK';
+  isKnownGood: boolean;
+  isCurrentActive: boolean;
+}
+
+export interface VerificationCheck {
+  checkName: string;
+  targetEndpoint: string;
+  expectedOutcome: string;
+  actualOutcome: string;
+  passed: boolean;
+  diagnosticDetail?: string;
+}
+
+export interface VerificationAudit {
+  targetVersion: string;
+  targetSlot: string;
+  overallPassed: boolean;
+  summary: string;
+  checks: VerificationCheck[];
 }
 
 export interface IntegrationInfo {
@@ -80,13 +151,22 @@ export interface IntegrationInfo {
 }
 
 export interface PlatformMetrics {
-  totalPipelines: number;
-  totalDeployments: number;
+  totalIncidents: number;
+  totalReleases: number;
   activeSlot: string;
+  inactiveSlot: string;
   activeVersion: string;
-  currentHealthStatus: string;
-  recoverySampleSize: number;
-  recoveryRateDisplay: string;
-  avgRecoverySecondsDisplay: string;
-  verifiedRecoveryCount: number;
+  successfulRecoveries: number;
+  candidatesRejected: number;
+  manualInterventions: number;
+  recoverySuccessRateDisplay: string;
+  avgRecoveryDurationDisplay: string;
+  // Legacy / convenience fields
+  totalPipelines?: number;
+  totalDeployments?: number;
+  currentHealthStatus?: string;
+  recoverySampleSize?: number;
+  recoveryRateDisplay?: string;
+  avgRecoverySecondsDisplay?: string;
+  verifiedRecoveryCount?: number;
 }

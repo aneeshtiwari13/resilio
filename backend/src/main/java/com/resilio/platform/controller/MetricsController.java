@@ -1,12 +1,10 @@
 package com.resilio.platform.controller;
 
-import com.resilio.platform.model.Deployment;
-import com.resilio.platform.model.RecoveryEvent;
-import com.resilio.platform.monitor.ApplicationHealthMonitor;
-import com.resilio.platform.orchestrator.BlueGreenOrchestrator;
-import com.resilio.platform.repository.DeploymentRepository;
-import com.resilio.platform.repository.PipelineRunRepository;
-import com.resilio.platform.repository.RecoveryEventRepository;
+import com.resilio.platform.model.Incident;
+import com.resilio.platform.model.ReleaseRecord;
+import com.resilio.platform.service.IncidentService;
+import com.resilio.platform.service.ReleaseRegistryService;
+import com.resilio.platform.service.RoutingService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,64 +19,74 @@ import java.util.Optional;
 @RequestMapping("/api/metrics")
 public class MetricsController {
 
-    private final PipelineRunRepository pipelineRepo;
-    private final DeploymentRepository deploymentRepo;
-    private final RecoveryEventRepository recoveryRepo;
-    private final ApplicationHealthMonitor healthMonitor;
-    private final BlueGreenOrchestrator orchestrator;
+    private final IncidentService incidentService;
+    private final ReleaseRegistryService releaseRegistry;
+    private final RoutingService routingService;
 
     public MetricsController(
-            PipelineRunRepository pipelineRepo,
-            DeploymentRepository deploymentRepo,
-            RecoveryEventRepository recoveryRepo,
-            ApplicationHealthMonitor healthMonitor,
-            BlueGreenOrchestrator orchestrator
+            IncidentService incidentService,
+            ReleaseRegistryService releaseRegistry,
+            RoutingService routingService
     ) {
-        this.pipelineRepo = pipelineRepo;
-        this.deploymentRepo = deploymentRepo;
-        this.recoveryRepo = recoveryRepo;
-        this.healthMonitor = healthMonitor;
-        this.orchestrator = orchestrator;
+        this.incidentService = incidentService;
+        this.releaseRegistry = releaseRegistry;
+        this.routingService = routingService;
     }
 
     @GetMapping
     public ResponseEntity<Map<String, Object>> getMetrics() {
         Map<String, Object> resp = new HashMap<>();
 
-        long totalPipelines = pipelineRepo.count();
-        long totalDeployments = deploymentRepo.count();
-        List<RecoveryEvent> recoveries = recoveryRepo.findAll();
+        List<Incident> incidents = incidentService.getAllIncidents();
+        List<ReleaseRecord> releases = releaseRegistry.getAllReleases();
 
-        resp.put("totalPipelines", totalPipelines);
-        resp.put("totalDeployments", totalDeployments);
-        resp.put("activeSlot", orchestrator.getActiveSlot());
-        resp.put("currentHealthStatus", healthMonitor.getCurrentStatus());
+        // 1. Basic counts
+        int totalIncidents = incidents.size();
+        int totalReleases = releases.size();
 
-        Optional<Deployment> activeDep = deploymentRepo.findByEnvironmentSlotAndStatus(orchestrator.getActiveSlot(), "ACTIVE");
-        resp.put("activeVersion", activeDep.map(Deployment::getVersionTag).orElse("Not deployed"));
+        resp.put("totalIncidents", totalIncidents);
+        resp.put("totalReleases", totalReleases);
+        resp.put("activeSlot", routingService.getActiveSlot());
+        resp.put("inactiveSlot", routingService.getInactiveSlot());
 
-        // Accurate recovery metrics with sample size
-        int sampleSize = recoveries.size();
-        resp.put("recoverySampleSize", sampleSize);
+        Optional<ReleaseRecord> active = releaseRegistry.getActiveRelease();
+        resp.put("activeVersion", active.map(ReleaseRecord::getVersionTag).orElse("1.0.0"));
 
-        if (sampleSize == 0) {
-            resp.put("recoveryRateDisplay", "No data yet");
-            resp.put("avgRecoverySecondsDisplay", "No data yet");
-            resp.put("verifiedRecoveryCount", 0);
+        // 2. Completed recoveries calculation (excluding in-progress)
+        long successfulRecoveries = incidents.stream()
+                .filter(i -> "RECOVERED".equalsIgnoreCase(i.getFinalStatus()))
+                .count();
+
+        long candidatesRejected = incidents.stream()
+                .filter(i -> "CANDIDATE_REJECTED".equalsIgnoreCase(i.getFinalStatus()))
+                .count();
+
+        long manualInterventions = incidents.stream()
+                .filter(i -> "MANUAL_INTERVENTION_REQUIRED".equalsIgnoreCase(i.getFinalStatus()))
+                .count();
+
+        long eligibleRollbacks = incidents.stream()
+                .filter(i -> "RECOVERED".equalsIgnoreCase(i.getFinalStatus()) || "RECOVERY_FAILED".equalsIgnoreCase(i.getFinalStatus()))
+                .count();
+
+        resp.put("successfulRecoveries", successfulRecoveries);
+        resp.put("candidatesRejected", candidatesRejected);
+        resp.put("manualInterventions", manualInterventions);
+
+        // 3. Rate & Duration metrics
+        if (eligibleRollbacks == 0) {
+            resp.put("recoverySuccessRateDisplay", "No data yet");
+            resp.put("avgRecoveryDurationDisplay", "No data yet");
         } else {
-            long verifiedCount = recoveries.stream()
-                    .filter(r -> "VERIFIED".equalsIgnoreCase(r.getVerificationResult()))
-                    .count();
-            double rate = ((double) verifiedCount / sampleSize) * 100.0;
-            resp.put("recoveryRateDisplay", String.format("%.1f%%", rate));
-            resp.put("verifiedRecoveryCount", verifiedCount);
+            double rate = ((double) successfulRecoveries / eligibleRollbacks) * 100.0;
+            resp.put("recoverySuccessRateDisplay", String.format("%.1f%%", rate));
 
-            double avgSec = recoveries.stream()
-                    .filter(r -> r.getDurationSeconds() != null)
-                    .mapToLong(RecoveryEvent::getDurationSeconds)
+            double avgSec = incidents.stream()
+                    .filter(i -> "RECOVERED".equalsIgnoreCase(i.getFinalStatus()) && i.getRecoveryDurationSeconds() != null)
+                    .mapToLong(Incident::getRecoveryDurationSeconds)
                     .average()
                     .orElse(0.0);
-            resp.put("avgRecoverySecondsDisplay", String.format("%.1fs", avgSec));
+            resp.put("avgRecoveryDurationDisplay", String.format("%.1fs", avgSec));
         }
 
         return ResponseEntity.ok(resp);

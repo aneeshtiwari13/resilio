@@ -32,3 +32,6 @@ target/screenshots/
 
 # OS specific
 Thumbs.db
+
+# Test-generated runtime artifacts
+backend/deploy/

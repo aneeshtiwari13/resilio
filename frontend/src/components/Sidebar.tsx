@@ -3,11 +3,9 @@ import {
   LayoutDashboard,
   GitBranch,
   Layers,
-  Activity,
   ShieldCheck,
-  History,
+  Compass,
   Boxes,
-  Settings,
   Flame,
 } from 'lucide-react';
 
@@ -19,13 +17,10 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
   const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'pipelines', label: 'Pipelines', icon: GitBranch },
-    { id: 'deployments', label: 'Deployments', icon: Layers },
-    { id: 'health', label: 'Health Monitor', icon: Activity },
-    { id: 'recovery', label: 'Recovery Center', icon: ShieldCheck },
-    { id: 'history', label: 'Audit History', icon: History },
-    { id: 'integrations', label: 'Integrations', icon: Boxes },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'incidents', label: 'Incident Center', icon: ShieldCheck },
+    { id: 'releases', label: 'Release Manager', icon: Layers },
+    { id: 'analytics', label: 'Recovery Analytics', icon: Compass },
+    { id: 'pipelines', label: 'Pipelines & CI', icon: GitBranch },
   ];
 
   return (
@@ -69,14 +64,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
         </nav>
       </div>
 
-      {/* Expo Demo Controls Badge */}
-      <div className="p-4 m-3 bg-canvas border border-border rounded-xl">
-        <div className="flex items-center gap-2 text-xs font-semibold text-charcoal mb-1">
+      {/* Expo / Self-Healing Architecture Badge */}
+      <div className="p-4 m-3 bg-canvas border border-border rounded-xl space-y-2">
+        <div className="flex items-center gap-2 text-xs font-semibold text-charcoal">
           <Flame className="w-3.5 h-3.5 text-coral" />
-          <span>Expo Demonstrator</span>
+          <span>Verified Self-Healing</span>
         </div>
         <p className="text-[11px] text-muted leading-relaxed">
-          Four repeatable live scenarios available to test verified self-healing.
+          Detect. Recover. Verify. Zero unverified rollbacks. Zero blind restarts.
         </p>
       </div>
     </aside>

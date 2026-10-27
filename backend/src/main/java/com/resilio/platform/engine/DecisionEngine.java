@@ -26,7 +26,7 @@ public class DecisionEngine {
             int consecutiveFailures,
             boolean isRollbackAttempt
     ) {
-        log.info("DecisionEngine evaluating: category={}, isPostActivation={}, hasKnownGood={}, failures={}, isRollback={}",
+        log.debug("DecisionEngine evaluating: category={}, isPostActivation={}, hasKnownGood={}, failures={}, isRollback={}",
                 category, isPostActivation, hasKnownGoodVersion, consecutiveFailures, isRollbackAttempt);
 
         // Guard: Failures occurring during rollback or verification of rollback

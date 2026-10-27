@@ -151,10 +151,14 @@ public class ApplicationHealthMonitor {
                     false
             );
 
-            log.warn("Health probe failed (consecutive={}/{}): status={}, decisionAction={}",
-                    failures, failureThreshold, status, decision.getAction());
+            if (failures <= failureThreshold) {
+                log.warn("Health probe failed (consecutive={}/{}): status={}, decisionAction={}",
+                        failures, failureThreshold, status, decision.getAction());
+            } else {
+                log.debug("Health probe still failing (consecutive={}): status={}", failures, status);
+            }
 
-            if (failures >= failureThreshold && decision.getAction() == RecoveryAction.EXECUTE_ROLLBACK_TO_KNOWN_GOOD) {
+            if (failures == failureThreshold && decision.getAction() == RecoveryAction.EXECUTE_ROLLBACK_TO_KNOWN_GOOD) {
                 if (autoRollbackSuspended.get()) {
                     log.warn("Auto-rollback currently suspended to prevent infinite flapping. Awaiting operator intervention or target service availability.");
                     return;
@@ -174,7 +178,7 @@ public class ApplicationHealthMonitor {
                         log.error("CIRCUIT BREAKER TRIPPED: Restored deployment failed verification! Auto-rollback suspended to prevent infinite flapping. Operator intervention required.");
                     }
                 } else {
-                    log.warn("Auto-rollback disabled by operator policy (autoRollbackEnabled=false). Awaiting manual intervention.");
+                    log.warn("Auto-rollback disabled by operator policy (autoRollbackEnabled=false). Awaiting manual intervention or target workload startup.");
                 }
             }
         }

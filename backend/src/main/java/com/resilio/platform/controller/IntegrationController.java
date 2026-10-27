@@ -35,7 +35,17 @@ public class IntegrationController {
     public ResponseEntity<List<Map<String, Object>>> getIntegrations() {
         List<Map<String, Object>> integrations = new ArrayList<>();
 
-        // 1. Jenkins Integration
+        // 1. Docker Runtime
+        boolean dockerUp = checkDockerDaemon();
+        integrations.add(createIntegrationMap(
+                "DOCKER",
+                "Docker Container Engine",
+                dockerUp ? "CONNECTED" : "DISCONNECTED",
+                "local daemon (cli/pipe)",
+                dockerUp ? "Docker container engine operational." : "Docker daemon not detected or offline on host."
+        ));
+
+        // 2. Jenkins Integration
         boolean jenkinsUp = jenkinsClient.isConnected();
         integrations.add(createIntegrationMap(
                 "JENKINS",
@@ -45,7 +55,7 @@ public class IntegrationController {
                 jenkinsUp ? "Pipeline execution engine operational." : "Unable to reach Jenkins on port 8085."
         ));
 
-        // 2. Selenium Grid
+        // 3. Selenium Grid
         boolean seleniumUp = checkEndpoint(seleniumUrl + "/status");
         integrations.add(createIntegrationMap(
                 "SELENIUM",
@@ -55,7 +65,7 @@ public class IntegrationController {
                 seleniumUp ? "Standalone Chrome node active and ready for sessions." : "Selenium Grid endpoint unavailable."
         ));
 
-        // 3. Nginx Reverse Proxy
+        // 4. Nginx Reverse Proxy
         boolean nginxUp = checkEndpoint(nginxUrl);
         integrations.add(createIntegrationMap(
                 "NGINX",
@@ -84,6 +94,18 @@ public class IntegrationController {
         ));
 
         return ResponseEntity.ok(integrations);
+    }
+
+    private boolean checkDockerDaemon() {
+        try {
+            Process process = new ProcessBuilder("docker", "--version")
+                    .redirectErrorStream(true)
+                    .start();
+            boolean finished = process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS);
+            return finished && process.exitValue() == 0;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private boolean checkEndpoint(String url) {

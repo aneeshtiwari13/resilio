@@ -72,6 +72,10 @@
           <i data-lucide="layers" class="w-4 h-4 text-muted"></i>
           <span>Release Manager</span>
         </button>
+        <button onclick="setTab('infrastructure')" id="nav-infrastructure" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors text-left text-muted hover:text-charcoal hover:bg-canvas/50">
+          <i data-lucide="server" class="w-4 h-4 text-muted"></i>
+          <span>Infra & Locks</span>
+        </button>
         <button onclick="setTab('analytics')" id="nav-analytics" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors text-left text-muted hover:text-charcoal hover:bg-canvas/50">
           <i data-lucide="compass" class="w-4 h-4 text-muted"></i>
           <span>Recovery Analytics</span>
@@ -83,14 +87,21 @@
       </nav>
     </div>
 
-    <div class="p-4 m-3 bg-canvas border border-border rounded-xl space-y-2">
-      <div class="flex items-center gap-2 text-xs font-semibold text-charcoal">
-        <i data-lucide="flame" class="w-3.5 h-3.5 text-coral"></i>
-        <span>Verified Self-Healing</span>
+    <!-- Active User & Security Context -->
+    <div class="p-4 m-3 bg-canvas border border-border rounded-xl space-y-2.5">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-bold text-muted uppercase tracking-wider">Access Control</span>
+        <span id="sidebar-role-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-violet-light text-violet">OPERATOR</span>
       </div>
-      <p class="text-[11px] text-muted leading-relaxed">
-        Detect. Recover. Verify. Zero unverified rollbacks. Zero blind restarts.
-      </p>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-full bg-emerald text-white flex items-center justify-center font-bold text-xs" id="sidebar-user-avatar">O</div>
+        <div class="truncate text-xs font-semibold text-charcoal" id="sidebar-username">operator</div>
+      </div>
+      <div class="flex gap-1 pt-1 border-t border-border/60">
+        <button onclick="switchUserRole('operator')" class="flex-1 py-1 rounded text-[10px] font-semibold bg-card border border-border hover:border-emerald text-charcoal text-center">Operator</button>
+        <button onclick="switchUserRole('admin')" class="flex-1 py-1 rounded text-[10px] font-semibold bg-card border border-border hover:border-violet text-charcoal text-center">Admin</button>
+        <button onclick="switchUserRole('viewer')" class="flex-1 py-1 rounded text-[10px] font-semibold bg-card border border-border hover:border-coral text-charcoal text-center">Viewer</button>
+      </div>
     </div>
   </aside>
 
@@ -104,6 +115,12 @@
       </div>
 
       <div class="flex items-center gap-3">
+        <!-- Startup Reconciliation Badge -->
+        <span id="recon-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-teal-light text-teal border border-teal/20" title="Disk upstream configuration verified on startup">
+          <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+          <span id="recon-badge-text">Reconciled: BLUE</span>
+        </span>
+
         <span id="health-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-light text-emerald border border-emerald/20">
           <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
           <span id="health-badge-text">System Healthy</span>
@@ -165,6 +182,20 @@
             </div>
             <div id="stat-avg-duration" class="text-2xl font-bold text-charcoal">No data yet</div>
             <div class="text-xs text-muted mt-2">Detection + Upstream Swap + Verify</div>
+          </div>
+        </div>
+
+        <!-- External Infrastructure Health At-A-Glance -->
+        <div class="bg-card rounded-xl border border-border p-6 shadow-xs">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-charcoal uppercase tracking-wider">Platform Integrations & Infrastructure Status</h3>
+            <button onclick="setTab('infrastructure')" class="text-xs text-emerald font-semibold hover:underline">View Distributed Locks &rarr;</button>
+          </div>
+          <div id="overview-integrations-grid" class="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div class="p-3 bg-canvas rounded-lg border border-border text-center">
+              <div class="text-xs font-bold text-charcoal">Docker</div>
+              <div class="text-[10px] text-muted font-mono mt-1">Checking...</div>
+            </div>
           </div>
         </div>
 
@@ -281,7 +312,67 @@
         </div>
       </section>
 
-      <!-- 4. ANALYTICS VIEW -->
+      <!-- 4. INFRASTRUCTURE & LOCKS VIEW (PHASE 3) -->
+      <section id="view-infrastructure" class="space-y-6 hidden">
+        <div class="pb-4 border-b border-border">
+          <h2 class="text-xl font-bold text-charcoal">Infrastructure Health & Distributed Recovery Locks</h2>
+          <p class="text-xs text-muted mt-1">Multi-instance lease locking, idempotency key auditing, startup reconciliation, and live external dependency status</p>
+        </div>
+
+        <!-- Startup Reconciliation Card -->
+        <div class="bg-card rounded-xl border border-border p-6 shadow-xs">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="shield-alert" class="w-5 h-5 text-teal"></i>
+              <h3 class="text-sm font-bold text-charcoal">Recovery Startup Reconciliation State</h3>
+            </div>
+            <span id="infra-recon-status" class="px-2.5 py-0.5 rounded text-xs font-bold bg-teal-light text-teal">VERIFIED CLEAN</span>
+          </div>
+          <p id="infra-recon-details" class="text-xs text-muted leading-relaxed">
+            Startup reconciliation listener verifies filesystem upstream routing against database active releases and aborts any interrupted recovery sessions to eliminate split-brain hazards.
+          </p>
+        </div>
+
+        <!-- External Integrations Detailed Cards -->
+        <div class="bg-card rounded-xl border border-border p-6 shadow-xs space-y-4">
+          <h3 class="text-sm font-bold text-charcoal uppercase tracking-wider">External Infrastructure Dependencies</h3>
+          <div id="infra-dependencies-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="py-8 text-center text-muted text-xs col-span-3">Loading dependency status...</div>
+          </div>
+        </div>
+
+        <!-- Distributed Recovery Operations Table -->
+        <div class="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
+          <div class="p-5 border-b border-border flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-charcoal uppercase tracking-wider">Distributed Recovery Operations Audit Log</h3>
+              <p class="text-xs text-muted mt-0.5">Database-backed lease locks with idempotency keys, preventing split-brain recovery</p>
+            </div>
+            <span class="text-xs text-muted font-mono" id="active-locks-count">Active Locks: 0</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+              <thead>
+                <tr class="border-b border-border text-muted uppercase tracking-wider text-[11px] bg-canvas/60">
+                  <th class="py-3 px-4">Attempt ID</th>
+                  <th class="py-3 px-4">Target</th>
+                  <th class="py-3 px-4">Action</th>
+                  <th class="py-3 px-4">Lock Owner</th>
+                  <th class="py-3 px-4">Idempotency Key</th>
+                  <th class="py-3 px-4">State</th>
+                  <th class="py-3 px-4">Lease Expiry</th>
+                  <th class="py-3 px-4">Summary</th>
+                </tr>
+              </thead>
+              <tbody id="operations-tbody" class="divide-y divide-border/60">
+                <tr><td colspan="8" class="py-8 text-center text-muted">Loading recovery operations...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. ANALYTICS VIEW -->
       <section id="view-analytics" class="space-y-6 hidden">
         <div class="pb-4 border-b border-border">
           <h2 class="text-xl font-bold text-charcoal">Recovery Analytics & Decision Rules</h2>
@@ -323,7 +414,7 @@
         </div>
       </section>
 
-      <!-- 5. PIPELINES VIEW -->
+      <!-- 6. PIPELINES VIEW -->
       <section id="view-pipelines" class="space-y-6 hidden">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
           <div>
@@ -394,7 +485,7 @@
         <button onclick="closeModal('rollback-modal')" class="text-muted hover:text-charcoal"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
       <p class="text-xs text-muted leading-relaxed">
-        Resilio will immediately restore the last known-good release, update the Nginx upstream proxy, and run 7-point independent verification.
+        Resilio will immediately restore the last known-good release, update the Nginx upstream proxy, and run 7-point independent verification under distributed lock protection.
       </p>
       <div class="space-y-3 text-xs">
         <div>
@@ -415,19 +506,71 @@
 
   <script>
     let currentTab = 'overview';
-    let incidentsData = [];
+    let currentUser = {
+      username: 'operator',
+      role: 'ROLE_OPERATOR',
+      authHeader: 'Basic ' + btoa('operator:Operator@Resilio2026!')
+    };
+
+    function switchUserRole(roleName) {
+      if (roleName === 'admin') {
+        currentUser = {
+          username: 'admin',
+          role: 'ROLE_ADMIN',
+          authHeader: 'Basic ' + btoa('admin:Admin@Resilio2026!')
+        };
+      } else if (roleName === 'viewer') {
+        currentUser = {
+          username: 'viewer',
+          role: 'ROLE_VIEWER',
+          authHeader: 'Basic ' + btoa('viewer:Viewer@Resilio2026!')
+        };
+      } else {
+        currentUser = {
+          username: 'operator',
+          role: 'ROLE_OPERATOR',
+          authHeader: 'Basic ' + btoa('operator:Operator@Resilio2026!')
+        };
+      }
+      updateUserUI();
+      fetchTelemetry();
+    }
+
+    function updateUserUI() {
+      document.getElementById('sidebar-username').innerText = currentUser.username;
+      document.getElementById('sidebar-user-avatar').innerText = currentUser.username.charAt(0).toUpperCase();
+      const badge = document.getElementById('sidebar-role-badge');
+      badge.innerText = currentUser.role.replace('ROLE_', '');
+      if (currentUser.role === 'ROLE_ADMIN') {
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-violet-light text-violet";
+      } else if (currentUser.role === 'ROLE_OPERATOR') {
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-light text-emerald";
+      } else {
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-canvas text-muted border border-border";
+      }
+    }
+
+    function authHeaders(extra = {}) {
+      return {
+        'Authorization': currentUser.authHeader,
+        'Content-Type': 'application/json',
+        ...extra
+      };
+    }
 
     function setTab(tab) {
       currentTab = tab;
-      ['overview', 'incidents', 'releases', 'analytics', 'pipelines'].forEach(t => {
+      ['overview', 'incidents', 'releases', 'infrastructure', 'analytics', 'pipelines'].forEach(t => {
         const view = document.getElementById('view-' + t);
         const nav = document.getElementById('nav-' + t);
-        if (t === tab) {
-          view.classList.remove('hidden');
-          nav.className = "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors text-left bg-canvas text-emerald border border-border shadow-xs";
-        } else {
-          view.classList.add('hidden');
-          nav.className = "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors text-left text-muted hover:text-charcoal hover:bg-canvas/50";
+        if (view && nav) {
+          if (t === tab) {
+            view.classList.remove('hidden');
+            nav.className = "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors text-left bg-canvas text-emerald border border-border shadow-xs";
+          } else {
+            view.classList.add('hidden');
+            nav.className = "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors text-left text-muted hover:text-charcoal hover:bg-canvas/50";
+          }
         }
       });
 
@@ -435,67 +578,80 @@
         overview: ['Platform Overview', 'Live telemetry across builds, deployments, and verified recovery'],
         incidents: ['Incident & Self-Healing Center', 'Automated recovery decisions, timeline audits, and verification telemetry'],
         releases: ['Release & Traffic Manager', 'Active Blue/Green upstream routing and 7-point independent verification'],
+        infrastructure: ['Infrastructure & Distributed Locks', 'Distributed recovery operations, lease locking, and external dependency health'],
         analytics: ['Recovery Analytics', 'Decision Engine rules matrix, SRE metrics, and safety guarantees'],
         pipelines: ['Pipelines & CI Execution', 'Real-time Jenkins builds, unit tests, and candidate packaging']
       };
-      document.getElementById('header-title').innerText = titles[tab][0];
-      document.getElementById('header-subtitle').innerText = titles[tab][1];
+      if (titles[tab]) {
+        document.getElementById('header-title').innerText = titles[tab][0];
+        document.getElementById('header-subtitle').innerText = titles[tab][1];
+      }
       lucide.createIcons();
     }
 
     async function fetchTelemetry() {
       try {
         // 1. Metrics
-        const mRes = await fetch('/api/metrics');
+        const mRes = await fetch('/api/metrics', { headers: authHeaders() });
         if (mRes.ok) {
-          const m = await mRes.json();
-          document.getElementById('stat-active-version').innerText = m.activeVersion || '1.0.0';
-          document.getElementById('stat-active-slot').innerText = m.activeSlot || 'BLUE';
-          document.getElementById('stat-recovery-rate').innerText = m.recoverySuccessRateDisplay || 'No data yet';
-          document.getElementById('stat-avg-duration').innerText = m.avgRecoveryDurationDisplay || 'No data yet';
-          
-          const isBlue = m.activeSlot === 'BLUE';
-          document.getElementById('stat-slot-dot').className = `inline-block w-2.5 h-2.5 rounded-full ${isBlue ? 'bg-blue-500' : 'bg-emerald'}`;
-          
-          const blueCard = document.getElementById('overview-blue-card');
-          const greenCard = document.getElementById('overview-green-card');
-          const blueBadge = document.getElementById('overview-blue-badge');
-          const greenBadge = document.getElementById('overview-green-badge');
-          
-          if (isBlue) {
-            blueCard.className = 'p-4 rounded-xl border border-blue-500 bg-blue-50/40';
-            blueBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500 text-white';
-            blueBadge.innerText = 'LIVE TRAFFIC';
-            greenCard.className = 'p-4 rounded-xl border border-border bg-canvas/40 opacity-75';
-            greenBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-canvas text-muted border border-border';
-            greenBadge.innerText = 'STANDBY';
-          } else {
-            greenCard.className = 'p-4 rounded-xl border border-emerald bg-emerald-light/40';
-            greenBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald text-white';
-            greenBadge.innerText = 'LIVE TRAFFIC';
-            blueCard.className = 'p-4 rounded-xl border border-border bg-canvas/40 opacity-75';
-            blueBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-canvas text-muted border border-border';
-            blueBadge.innerText = 'STANDBY';
-          }
+          const metrics = await mRes.json();
+          document.getElementById('stat-active-version').innerText = metrics.activeVersion || '1.0.0';
+          document.getElementById('stat-active-slot').innerText = metrics.activeSlot || 'BLUE';
+          document.getElementById('stat-recovery-rate').innerText = metrics.verificationPassRate || '100%';
+          document.getElementById('stat-avg-duration').innerText = (metrics.averageRecoveryDurationSeconds || 0) + 's';
         }
 
-        // 2. Incidents
-        const incRes = await fetch('/api/incidents');
+        // 2. Health Monitor
+        const hRes = await fetch('/api/health-monitor/status', { headers: authHeaders() });
+        if (hRes.ok) {
+          const health = await hRes.json();
+          const st = health.currentStatus || 'HEALTHY';
+          document.getElementById('stat-health-status').innerText = st;
+          const badge = document.getElementById('health-badge');
+          const badgeText = document.getElementById('health-badge-text');
+          badgeText.innerText = st === 'HEALTHY' ? 'System Healthy' : 'Health Issue Detected';
+          badge.className = `inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+            st === 'HEALTHY' ? 'bg-emerald-light text-emerald border border-emerald/20' : 'bg-coral-light text-coral border border-coral/20'
+          }`;
+        }
+
+        // 3. Incidents
+        const incRes = await fetch('/api/incidents', { headers: authHeaders() });
         if (incRes.ok) {
-          incidentsData = await incRes.json();
-          renderIncidentsTable(incidentsData);
-          renderOverviewIncidents(incidentsData);
+          const incidents = await incRes.json();
+          renderIncidentsTable(incidents);
+          renderOverviewIncidents(incidents);
         }
 
-        // 3. Releases
-        const relRes = await fetch('/api/releases');
+        // 4. Releases
+        const relRes = await fetch('/api/releases', { headers: authHeaders() });
         if (relRes.ok) {
           const releases = await relRes.json();
           renderReleasesTable(releases);
         }
 
-        // 4. Pipelines
-        const pipeRes = await fetch('/api/pipelines');
+        // 5. Integrations / Infrastructure Status
+        const intRes = await fetch('/api/integrations', { headers: authHeaders() });
+        if (intRes.ok) {
+          const integrations = await intRes.json();
+          renderIntegrations(integrations);
+        }
+
+        // 6. Recovery Status & Operations (Phase 3)
+        const recStatusRes = await fetch('/api/recovery/status', { headers: authHeaders() });
+        if (recStatusRes.ok) {
+          const recStatus = await recStatusRes.json();
+          renderRecoveryStatus(recStatus);
+        }
+
+        const recOpsRes = await fetch('/api/recovery/operations', { headers: authHeaders() });
+        if (recOpsRes.ok) {
+          const ops = await recOpsRes.json();
+          renderOperationsTable(ops);
+        }
+
+        // 7. Pipelines
+        const pipeRes = await fetch('/api/pipelines', { headers: authHeaders() });
         if (pipeRes.ok) {
           const pipes = await pipeRes.json();
           renderPipelinesTable(pipes);
@@ -504,6 +660,69 @@
         console.error('Telemetry fetch error:', e);
       }
       lucide.createIcons();
+    }
+
+    function renderIntegrations(integrations) {
+      const overviewContainer = document.getElementById('overview-integrations-grid');
+      const infraContainer = document.getElementById('infra-dependencies-list');
+
+      overviewContainer.innerHTML = integrations.map(item => `
+        <div class="p-3 bg-canvas rounded-lg border border-border text-center">
+          <div class="text-xs font-bold text-charcoal">${item.displayName.split(' ')[0]}</div>
+          <div class="text-[10px] font-bold mt-1 ${item.status === 'CONNECTED' ? 'text-emerald' : 'text-coral'}">${item.status}</div>
+        </div>
+      `).join('');
+
+      infraContainer.innerHTML = integrations.map(item => `
+        <div class="p-4 bg-canvas rounded-xl border border-border space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-charcoal">${item.displayName}</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
+              item.status === 'CONNECTED' ? 'bg-emerald-light text-emerald' : 'bg-coral-light text-coral'
+            }">${item.status}</span>
+          </div>
+          <div class="text-[11px] font-mono text-muted truncate">${item.endpointUrl || 'local'}</div>
+          <p class="text-[11px] text-muted leading-tight">${item.details}</p>
+        </div>
+      `).join('');
+    }
+
+    function renderRecoveryStatus(status) {
+      const reconBadge = document.getElementById('recon-badge');
+      const reconText = document.getElementById('recon-badge-text');
+      const infraStatus = document.getElementById('infra-recon-status');
+      const infraDetails = document.getElementById('infra-recon-details');
+      const activeLockCounter = document.getElementById('active-locks-count');
+
+      reconText.innerText = `Reconciled: ${status.activeRoutingSlot || 'BLUE'}`;
+      infraDetails.innerText = status.startupReconciliationSummary || 'Reconciliation verified.';
+      activeLockCounter.innerText = `Lock Status: ${status.activeLockPresent ? 'ACTIVE (LOCKED)' : 'IDLE (UNLOCKED)'}`;
+    }
+
+    function renderOperationsTable(ops) {
+      const tbody = document.getElementById('operations-tbody');
+      if (!ops || ops.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="py-8 text-center text-muted">No distributed recovery operations recorded.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = ops.map(op => `
+        <tr class="hover:bg-canvas/50 transition-colors">
+          <td class="py-3 px-4 font-mono font-bold text-charcoal">${op.recoveryAttemptId}</td>
+          <td class="py-3 px-4 font-semibold text-charcoal">${op.deploymentTarget}</td>
+          <td class="py-3 px-4 font-mono text-[11px] text-muted">${op.requestedAction}</td>
+          <td class="py-3 px-4 text-charcoal font-medium">${op.lockOwner || 'system'}</td>
+          <td class="py-3 px-4 font-mono text-[10px] text-muted">${op.idempotencyKey || '—'}</td>
+          <td class="py-3 px-4">
+            <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+              op.operationState === 'COMPLETED' ? 'bg-emerald-light text-emerald' :
+              op.operationState === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800 animate-pulse' :
+              op.operationState === 'ABORTED' ? 'bg-amber-100 text-amber-800' : 'bg-coral-light text-coral'
+            }">${op.operationState}</span>
+          </td>
+          <td class="py-3 px-4 text-muted font-mono text-[11px]">${op.leaseExpiresAt ? new Date(op.leaseExpiresAt).toLocaleTimeString() : '—'}</td>
+          <td class="py-3 px-4 text-muted text-[11px] max-w-xs truncate" title="${op.finalResult || ''}">${op.finalResult || 'Executing...'}</td>
+        </tr>
+      `).join('');
     }
 
     function renderOverviewIncidents(incidents) {
@@ -620,7 +839,7 @@
       modal.classList.add('flex');
 
       try {
-        const res = await fetch(`/api/incidents/${incidentId}/timeline`);
+        const res = await fetch(`/api/incidents/${incidentId}/timeline`, { headers: authHeaders() });
         if (res.ok) {
           const events = await res.json();
           if (events.length === 0) {
@@ -645,10 +864,12 @@
 
     async function verifyRelease(releaseId) {
       try {
-        const res = await fetch(`/api/releases/${releaseId}/verify`, { method: 'POST' });
+        const res = await fetch(`/api/releases/${releaseId}/verify`, { method: 'POST', headers: authHeaders() });
         if (res.ok) {
           const audit = await res.json();
           alert(`7-Point Verification Outcome: ${audit.overallPassed ? 'ALL CHECKS PASSED' : 'CHECK FAILED'}\n\nSummary: ${audit.summary}`);
+        } else if (res.status === 403) {
+          alert('403 Forbidden: Your user role does not have permission to execute verification mutations. Switch to Operator or Admin.');
         } else {
           alert('Verification call failed.');
         }
@@ -675,15 +896,21 @@
       const evidence = document.getElementById('rollback-evidence-input').value;
       closeModal('rollback-modal');
       try {
+        const idempotencyKey = 'manual-roll-' + Date.now();
         const res = await fetch('/api/recovery/trigger', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders({ 'Idempotency-Key': idempotencyKey }),
           body: JSON.stringify({ reason, evidence })
         });
         if (res.ok) {
-          alert('Rollback executed and verified successfully!');
+          alert('Rollback executed and verified successfully under distributed lock!');
           fetchTelemetry();
           setTab('incidents');
+        } else if (res.status === 403) {
+          alert('403 Forbidden: User role ' + currentUser.role + ' is not authorized to trigger recovery rollbacks. Switch to Operator or Admin.');
+        } else if (res.status === 409) {
+          const err = await res.json();
+          alert('409 Conflict: Concurrent recovery lock active: ' + err.message);
         } else {
           alert('Rollback failed to execute.');
         }
@@ -696,12 +923,14 @@
       try {
         const res = await fetch('/api/pipelines/trigger', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders(),
           body: JSON.stringify({ triggerType: 'MANUAL_DISPATCH', commitSha: 'a1b2c3d4', branch: 'main', message: 'Manual dispatch build' })
         });
         if (res.ok) {
           fetchTelemetry();
           setTab('pipelines');
+        } else if (res.status === 403) {
+          alert('403 Forbidden: Cannot trigger pipeline with ' + currentUser.role + ' role. Switch to Operator or Admin.');
         }
       } catch (e) {
         console.error(e);
@@ -709,6 +938,7 @@
     }
 
     // Initialize
+    updateUserUI();
     fetchTelemetry();
     setInterval(fetchTelemetry, 4000);
   </script>

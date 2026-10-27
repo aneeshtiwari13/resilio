@@ -1,9 +1,11 @@
 package com.resilio.platform.service;
 
 import com.resilio.platform.model.Incident;
+import com.resilio.platform.model.RecoveryOperation;
 import com.resilio.platform.model.ReleaseRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +23,7 @@ public class RecoveryDecisionService {
     private final RoutingService routingService;
     private final RecoveryVerificationService verificationService;
     private final IncidentService incidentService;
+    private final DistributedRecoveryLockService distributedLockService;
 
     private final ReentrantLock recoveryLock = new ReentrantLock();
     private final AtomicBoolean isRecoveryInProgress = new AtomicBoolean(false);
@@ -39,19 +42,31 @@ public class RecoveryDecisionService {
             RecoveryVerificationService verificationService,
             IncidentService incidentService
     ) {
+        this(releaseRegistry, routingService, verificationService, incidentService, null);
+    }
+
+    @Autowired
+    public RecoveryDecisionService(
+            ReleaseRegistryService releaseRegistry,
+            RoutingService routingService,
+            RecoveryVerificationService verificationService,
+            IncidentService incidentService,
+            @Autowired(required = false) DistributedRecoveryLockService distributedLockService
+    ) {
         this.releaseRegistry = releaseRegistry;
         this.routingService = routingService;
         this.verificationService = verificationService;
         this.incidentService = incidentService;
+        this.distributedLockService = distributedLockService;
     }
 
     public boolean isRecoveryRunning() {
+        if (distributedLockService != null && distributedLockService.isLockActive("PRODUCTION")) {
+            return true;
+        }
         return isRecoveryInProgress.get();
     }
 
-    /**
-     * Context-aware evaluation and execution of recovery rules.
-     */
     public Incident evaluateAndExecute(
             String failureCategory,
             String failedStage,
@@ -60,12 +75,27 @@ public class RecoveryDecisionService {
             String jenkinsBuild,
             boolean isPostActivation
     ) {
-        log.info("RecoveryDecisionService: Evaluating category={}, stage={}, postActivation={}",
-                failureCategory, failedStage, isPostActivation);
+        return evaluateAndExecute(failureCategory, failedStage, errorEvidence, candidateVersion, jenkinsBuild, isPostActivation, null, "resilio-system");
+    }
+
+    /**
+     * Context-aware evaluation and execution of recovery rules with distributed locking and idempotency.
+     */
+    public Incident evaluateAndExecute(
+            String failureCategory,
+            String failedStage,
+            String errorEvidence,
+            String candidateVersion,
+            String jenkinsBuild,
+            boolean isPostActivation,
+            String idempotencyKey,
+            String lockOwner
+    ) {
+        log.info("RecoveryDecisionService: Evaluating category={}, stage={}, postActivation={}, idempotencyKey={}",
+                failureCategory, failedStage, isPostActivation, idempotencyKey);
 
         Optional<ReleaseRecord> activeOpt = releaseRegistry.getActiveRelease();
-        String activeReleaseId = activeOpt.map(ReleaseRecord::getReleaseId).orElse("rel-baseline");
-        String activeSlot = routingService.getActiveSlot();
+        String activeReleaseId = activeOpt.map(ReleaseRecord::getReleaseId).orElse("unknown-active");
 
         // RULE 1: BUILD_FAILURE
         if ("BUILD_FAILURE".equalsIgnoreCase(failureCategory)) {
@@ -127,17 +157,45 @@ public class RecoveryDecisionService {
         if (isPostActivation) {
             log.warn("[RULE 5] Post-Activation failure detected! Evaluating automated rollback feasibility...");
 
-            // Lock guard: prevent concurrent recovery executions
+            // Distributed Lock Guard & In-process lock guard
             if (!recoveryLock.tryLock()) {
-                log.warn("Recovery operation already in progress! Rejecting concurrent execution.");
+                log.warn("Recovery operation already in progress locally! Rejecting concurrent execution.");
                 Incident inc = incidentService.createIncident(
                         jenkinsBuild, failureCategory, failedStage, errorEvidence,
                         candidateVersion, activeReleaseId,
                         "RECOVERY_IN_PROGRESS",
                         "Wait for active recovery process to complete",
-                        "Concurrent recovery conflict prevented by incident lock."
+                        "Concurrent recovery conflict prevented by local mutex."
                 );
                 return inc;
+            }
+
+            RecoveryOperation distributedOp = null;
+            if (distributedLockService != null) {
+                try {
+                    var lockResult = distributedLockService.tryAcquireLock(
+                            "PRODUCTION",
+                            "EXECUTE_ROLLBACK",
+                            lockOwner != null ? lockOwner : "system-node",
+                            idempotencyKey,
+                            null,
+                            activeReleaseId,
+                            null
+                    );
+
+                    distributedOp = lockResult.operation();
+
+                    if (lockResult.isReplay()) {
+                        log.info("Idempotent replay of recovery operation: attemptId={}", distributedOp.getRecoveryAttemptId());
+                        recoveryLock.unlock();
+                        // Return existing incident if possible
+                        return incidentService.getAllIncidents().stream().findFirst().orElse(null);
+                    }
+                } catch (RecoveryLockConflictException e) {
+                    recoveryLock.unlock();
+                    log.warn("Distributed lock conflict: {}", e.getMessage());
+                    throw e;
+                }
             }
 
             try {
@@ -155,6 +213,9 @@ public class RecoveryDecisionService {
                             "Active release failed, but no previously verified known-good release was found in registry."
                     );
                     Incident closed = incidentService.closeIncident(inc.getIncidentId(), "MANUAL_INTERVENTION_REQUIRED", "No eligible known-good release found.");
+                    if (distributedLockService != null && distributedOp != null) {
+                        distributedLockService.completeLock(distributedOp.getId(), "MANUAL_INTERVENTION_REQUIRED: No known-good release found", false);
+                    }
                     return closed != null ? closed : inc;
                 }
 
@@ -169,6 +230,11 @@ public class RecoveryDecisionService {
                         "Switch Nginx traffic back to " + fallbackSlot + " (" + knownGood.getReleaseId() + ")",
                         "Active application degraded after activation. Automatic rollback initiated."
                 );
+
+                if (distributedOp != null) {
+                    distributedOp.setIncidentId(inc.getIncidentId());
+                    distributedOp.setTargetKnownGoodRelease(knownGood.getReleaseId());
+                }
 
                 incidentService.recordTimelineEvent(
                         inc.getIncidentId(), "ROLLBACK_INITIATED", "Routing", "WARNING",
@@ -187,6 +253,9 @@ public class RecoveryDecisionService {
                             "Preserving diagnostics for operator inspection"
                     );
                     Incident closed = incidentService.closeIncident(inc.getIncidentId(), "RECOVERY_FAILED", "Nginx routing reconfiguration failed.");
+                    if (distributedLockService != null && distributedOp != null) {
+                        distributedLockService.completeLock(distributedOp.getId(), "RECOVERY_FAILED: Upstream routing failed", false);
+                    }
                     return closed != null ? closed : inc;
                 }
 
@@ -212,9 +281,15 @@ public class RecoveryDecisionService {
                 if (audit.allPassed()) {
                     closed = incidentService.closeIncident(inc.getIncidentId(), "RECOVERED", audit.details());
                     log.info("AUTOMATED ROLLBACK & VERIFICATION COMPLETED SUCCESSFULLY.");
+                    if (distributedLockService != null && distributedOp != null) {
+                        distributedLockService.completeLock(distributedOp.getId(), "RECOVERED: " + audit.details(), true);
+                    }
                 } else {
                     closed = incidentService.closeIncident(inc.getIncidentId(), "RECOVERY_FAILED", audit.details());
                     log.error("Rollback traffic switched but post-recovery verification failed!");
+                    if (distributedLockService != null && distributedOp != null) {
+                        distributedLockService.completeLock(distributedOp.getId(), "RECOVERY_FAILED: " + audit.details(), false);
+                    }
                 }
 
                 lastRecoveryTimestamp = Instant.now();

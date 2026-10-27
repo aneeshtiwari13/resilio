@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Run RESILIO Platform (Backend)",
+      "request": "launch",
+      "mainClass": "com.resilio.platform.ResilioApplication",
+      "projectName": "resilio-backend",
+      "cwd": "${workspaceFolder}/backend",
+      "env": {
+        "SERVER_PORT": "8090"
+      }
+    },
+    {
+      "type": "java",
+      "name": "Run Demo Target App (Port 8080)",
+      "request": "launch",
+      "mainClass": "com.resilio.demo.DemoApplication",
+      "projectName": "resilio-demo-app",
+      "cwd": "${workspaceFolder}/demo-app",
+      "env": {
+        "SERVER_PORT": "8080"
+      }
+    }
+  ]
+}

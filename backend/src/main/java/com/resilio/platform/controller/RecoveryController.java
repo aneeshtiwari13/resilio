@@ -1,12 +1,11 @@
 package com.resilio.platform.controller;
 
 import com.resilio.platform.model.Incident;
+import com.resilio.platform.model.RecoveryOperation;
 import com.resilio.platform.model.ReleaseRecord;
-import com.resilio.platform.service.IncidentService;
-import com.resilio.platform.service.RecoveryDecisionService;
-import com.resilio.platform.service.ReleaseRegistryService;
-import com.resilio.platform.service.RoutingService;
+import com.resilio.platform.service.*;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -22,17 +21,23 @@ public class RecoveryController {
     private final RecoveryDecisionService decisionService;
     private final ReleaseRegistryService releaseRegistry;
     private final RoutingService routingService;
+    private final DistributedRecoveryLockService distributedLockService;
+    private final RecoveryReconciliationService reconciliationService;
 
     public RecoveryController(
             IncidentService incidentService,
             RecoveryDecisionService decisionService,
             ReleaseRegistryService releaseRegistry,
-            RoutingService routingService
+            RoutingService routingService,
+            DistributedRecoveryLockService distributedLockService,
+            RecoveryReconciliationService reconciliationService
     ) {
         this.incidentService = incidentService;
         this.decisionService = decisionService;
         this.releaseRegistry = releaseRegistry;
         this.routingService = routingService;
+        this.distributedLockService = distributedLockService;
+        this.reconciliationService = reconciliationService;
     }
 
     @GetMapping("/status")
@@ -49,7 +54,15 @@ public class RecoveryController {
         resp.put("latestKnownGood", knownGood.orElse(null));
         resp.put("rollbackAvailable", knownGood.isPresent());
 
+        resp.put("reconciliationCompleted", reconciliationService.isReconciliationCompleted());
+        resp.put("reconciliationSummary", reconciliationService.getReconciliationSummary());
+
         return ResponseEntity.ok(resp);
+    }
+
+    @GetMapping("/operations")
+    public ResponseEntity<List<RecoveryOperation>> getRecoveryOperations() {
+        return ResponseEntity.ok(distributedLockService.getRecentOperations());
     }
 
     @GetMapping("/history")
@@ -60,7 +73,9 @@ public class RecoveryController {
     @PostMapping("/{incidentId}/retry")
     public ResponseEntity<Map<String, Object>> retryRecovery(
             @PathVariable String incidentId,
-            @RequestBody(required = false) Map<String, String> body
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyHeader,
+            @RequestBody(required = false) Map<String, String> body,
+            Authentication auth
     ) {
         Map<String, Object> resp = new HashMap<>();
 
@@ -78,16 +93,21 @@ public class RecoveryController {
         }
 
         Incident inc = incOpt.get();
-        logRetryAction(incidentId, body != null ? body.get("operator") : "admin");
+        String operator = auth != null ? auth.getName() : (body != null ? body.getOrDefault("operator", "admin") : "admin");
+        String idempotencyKey = idempotencyHeader != null ? idempotencyHeader : (body != null ? body.get("idempotencyKey") : null);
 
-        // Re-execute evaluation
+        logRetryAction(incidentId, operator);
+
+        // Re-execute evaluation with distributed lock
         Incident result = decisionService.evaluateAndExecute(
                 inc.getFailureCategory(),
                 inc.getFailedStage(),
                 "Operator requested manual retry: " + (body != null ? body.getOrDefault("reason", "Manual retry") : "Manual retry"),
                 inc.getCandidateReleaseId(),
                 inc.getJenkinsBuild(),
-                true // Force recovery attempt
+                true,
+                idempotencyKey,
+                operator
         );
 
         resp.put("success", true);
@@ -96,17 +116,25 @@ public class RecoveryController {
     }
 
     @PostMapping("/trigger")
-    public ResponseEntity<Incident> triggerManualRollback(@RequestBody(required = false) Map<String, String> body) {
+    public ResponseEntity<Incident> triggerManualRollback(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyHeader,
+            @RequestBody(required = false) Map<String, String> body,
+            Authentication auth
+    ) {
         String reason = body != null ? body.getOrDefault("reason", "Operator manual rollback") : "Operator manual rollback";
         String evidence = body != null ? body.getOrDefault("evidence", "Manual judgment via control center") : "Manual judgment";
+        String operator = auth != null ? auth.getName() : "dashboard-operator";
+        String idempotencyKey = idempotencyHeader != null ? idempotencyHeader : (body != null ? body.get("idempotencyKey") : null);
 
         Incident incident = decisionService.evaluateAndExecute(
                 "HEALTH_CHECK_FAILURE",
                 "Manual Operator Override",
-                evidence,
+                evidence + " (Reason: " + reason + ")",
                 "current-active",
                 "manual",
-                true // Post-activation rollback
+                true,
+                idempotencyKey,
+                operator
         );
 
         return ResponseEntity.ok(incident);

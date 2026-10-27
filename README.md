@@ -1,123 +1,135 @@
 # RESILIO — Self-Healing CI/CD Platform
-## Phase 1: Real CI/CD Foundation Implementation Report
 
-**Status**: Verified & Complete  
-**Date**: October 2026  
-**Target Environment**: Windows 10/11 (PowerShell), Docker Desktop, Java 21 LTS, Jenkins, Selenium WebDriver
+> **Detect. Recover. Verify.**  
+> An enterprise-grade, full-stack CI/CD and automated recovery platform designed to eliminate split-brain rollbacks, blind restarts, and undetected deployment regressions.
 
 ---
 
-### 1. Executive Summary
+## 1. Platform Overview
 
-Phase 1 of **RESILIO** establishes the real, working build, test, and containerized deployment foundation. In accordance with the Phase 1 specification, this phase implements:
-1. **Target Java Application (`resilio-demo-app`)**: Spring Boot 3.2 web service featuring a polished landing page with navigation bar, responsive layout, actuator health check (`/actuator/health`), version metadata endpoint (`/api/version`), and interactive business workflow verification.
-2. **Reproducible Maven Configuration**: Pinned Java 21 compilation, JUnit 5 test harness, Surefire XML reporting, and embedded Apache Maven Wrapper (`mvnw.cmd` / `mvnw`).
-3. **Automated Selenium WebDriver Suite**: Headless Chrome test runner covering 6 distinct functional scenarios, explicit waits, and automated failure screenshot capture.
-4. **End-to-End Jenkins Pipeline (`Jenkinsfile`)**: 7 version-controlled pipeline stages from source checkout to environment validation, Maven compilation, Docker containerization, health verification, and browser gate checks.
-5. **Phase 1 Resilio Dashboard**: React + TypeScript + Vite + Tailwind CSS dashboard adhering to the Warm Ivory (`#F7F6F2`) design system, reporting genuine application health, deployed version metadata, and Jenkins connection state without fabricated metrics.
-
----
-
-### 2. Architecture & Pipeline Sequence
+**RESILIO** integrates source-code management, automated builds, browser regression testing, containerized deployments, real-time telemetry monitoring, distributed recovery locks, and verified blue-green rollback into a unified engineering workflow.
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Dev as Developer
-    participant Git as GitHub SCM
-    participant Jnk as Jenkins CI (:8085)
-    participant Mvn as Maven Build Engine
-    participant Dkr as Docker Engine
-    participant Sel as Selenium Chrome (:4444)
-    participant App as Candidate Workload (:8080)
-    participant Dash as Resilio Dashboard (:3000)
-
-    Dev->>Git: Push Commit (main)
-    Git->>Jnk: Trigger via Webhook or Polling
-    Jnk->>Mvn: Stage 3: mvn clean verify
-    Note over Mvn: Runs Unit & Logic Tests
-    Mvn-->>Jnk: Build & Tests PASS (Surefire XML)
-    Jnk->>Dkr: Stage 4: docker build -t resilio/demo-app:b{N}-{SHA}
-    Jnk->>Dkr: Stage 5: docker run candidate on resilio_net
-    Jnk->>App: Bounded Probe: GET /actuator/health
-    App-->>Jnk: {"status":"UP"}
-    Jnk->>Sel: Stage 6: Execute Selenium Functional Tests
-    Sel->>App: Test Home, Version, Workflow, Validation Gate
-    Sel-->>Jnk: All 6 Browser Scenarios PASS
-    Jnk-->>Dash: Publish Build Status & Telemetry
-    Dash->>App: Continuous Real-Time Health & Version Probe
+graph TD
+    A["Developer Commit"] --> B["Jenkins CI Pipeline"]
+    B --> C["Maven Compile & JUnit 5"]
+    C --> D["Docker Image Build"]
+    D --> E["Blue/Green Standby Deployment"]
+    E --> F["Selenium Functional Browser Gate"]
+    F --> G["Atomic Traffic Promotion via Nginx"]
+    G --> H["Continuous Actuator Health Monitor"]
+    H -- "Health Degradation Detected" --> I["Failure Classification Engine"]
+    I --> J["Recovery Decision Engine (7 Rules)"]
+    J --> K["Distributed Lock Acquisition (DB Lease)"]
+    K --> L["Automated Blue/Green Rollback"]
+    L --> M["7-Point Post-Recovery Verification"]
+    M --> N["Immutable Audit Timeline & Incident Closed"]
 ```
 
 ---
 
-### 3. Acceptance Test Execution Matrix
+## 2. Core Capabilities
 
-All Phase 1 acceptance scenarios were rigorously executed and validated:
-
-| Test ID | Scenario | Execution Trigger | Expected Result | Actual Result | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Test A** | **Successful Pipeline** | Valid source code, clean build | All 7 stages pass; candidate verified | All JUnit tests pass, JAR packaged, image build passes | **PASSED** |
-| **Test B** | **Compilation Failure Guard** | Introduced `DeliberateSyntaxError.java` | Maven exits with non-zero code; halts pipeline before packaging | Maven exited with exit code `1`; build failed at compile phase | **PASSED** |
-| **Test C** | **Unit Test Failure Guard** | Introduced `DeliberateFailingUnitTest.java` | Maven Surefire detects failure; exits non-zero; deployment blocked | Maven exited with exit code `1`; Surefire recorded failure in XML | **PASSED** |
-| **Test D** | **Selenium Regression Gate** | Injected functional regression in payload validation | Selenium detects failure; pipeline marks build as FAILED; screenshots saved | `RegressionGateTest` fails assertion; screenshot archived | **PASSED** |
-| **Test E** | **Successful Browser Tests** | Restored valid application code | All 6 browser scenarios pass against real container | Home, Nav, Actuator, Valid Input, Invalid Rejection all PASS | **PASSED** |
-| **Test F** | **Docker Verification** | Deploy candidate container in Docker | `/actuator/health` returns `UP`; `/api/version` reports SHA and build ID | Health responds `200 UP`; version endpoint returns valid JSON | **PASSED** |
+- **CI/CD Foundation**: Java 21, Spring Boot 3.2, Apache Maven, Docker Compose, Jenkinsfile with 7 declarative stages.
+- **Selenium Browser Testing**: Automated headless Chrome test suite executing functional workflow verification and regression detection.
+- **Blue/Green Zero-Downtime Routing**: Nginx upstream proxy dynamically switching between `BLUE` (`:8081`) and `GREEN` (`:8082`) slots.
+- **Failure Classification Engine**: Deterministic taxonomy distinguishing `BUILD_FAILURE`, `UNIT_TEST_FAILURE`, `CONTAINER_STARTUP_FAILURE`, `SELENIUM_REGRESSION_FAILURE`, and `HEALTH_CHECK_FAILURE`.
+- **Decision Engine (Rules 1 – 7)**: Zero-guesswork recovery logic protecting live traffic, rejecting bad candidates, and safely rolling back post-activation incidents.
+- **Distributed Recovery Locking & Leasing**: Database-backed `recovery_operations` table with lease TTLs, optimistic locking (`@Version`), atomic 409 conflict rejection, and `Idempotency-Key` duplicate suppression.
+- **Startup State Reconciliation**: `RecoveryReconciliationService` verifying physical Nginx upstream disk configs on boot and aborting stale/interrupted recovery sessions to prevent split-brain states.
+- **Role-Based Access Control (RBAC)**: Spring Security 6.2 with BCrypt password hashing, protecting operational mutations with `ROLE_OPERATOR` and `ROLE_ADMIN`, and providing read-only access to `ROLE_VIEWER`.
+- **Observability & Request Correlation**: `CorrelationIdFilter` propagating `X-Correlation-ID` across distributed request lifecycles and SLF4J MDC, alongside regex-based `SecretMasker` credential sanitization in logs.
+- **Interactive Control Center**: Single-page dashboard adhering to the Warm Ivory (`#F7F6F2`) design system with real-time health telemetry, role switcher, infrastructure health cards, and timeline audit viewer.
 
 ---
 
-### 4. Repository Layout
+## 3. Project Structure
 
 ```text
 resilio/
-├── .mvn/wrapper/                  # Maven Wrapper runtime properties
-├── mvnw & mvnw.cmd                # Cross-platform Maven wrapper scripts
-├── docker-compose.yml             # Orchestration for Demo App, Selenium, Jenkins, Postgres
+├── .vscode/                       # Shared VS Code configurations (launch, tasks, extensions)
+├── backend/                       # Resilio Control Plane & Self-Healing Backend (Port 8090)
+│   ├── src/main/java/             # Spring Boot, Security, Decision Engine, Locks, Monitors
+│   ├── src/main/resources/        # application.properties, static/index.html (Dashboard)
+│   └── src/test/java/             # 34 automated unit, integration, and security tests
+├── demo-app/                      # Target Java Spring Boot workload (Port 8080)
+│   ├── Dockerfile                 # Multi-stage production container
+│   └── src/main/java/             # WebController, DataProcessingService, ChaosStateService
+├── selenium-tests/                # Automated browser test suite (Selenium WebDriver)
+├── deploy/                        # Deployment configurations & Nginx upstream templates
+├── docs/                          # Comprehensive architectural and validation reports
+│   ├── PHASE3_IMPLEMENTATION_REPORT.md  # Master Phase 3 completion report
+│   ├── PHASE2_LIVE_VALIDATION_REPORT.md # Explicit validation tiers (Unit vs Live Docker)
+│   ├── RECOVERY_RECONCILIATION.md       # State machine & distributed locking specification
+│   ├── SECURITY_CONFIGURATION.md        # RBAC matrix, BCrypt details, and auth endpoints
+│   └── WINDOWS_SETUP.md                 # Windows environment & infrastructure setup
+├── scripts/                       # PowerShell testing and scenario execution scripts
+├── docker-compose.yml             # Full-stack container orchestration
 ├── .env.example                   # Environment configuration template
-├── .gitignore                     # Git exclusion rules
-├── README.md                      # Project overview and quickstart
-├── demo-app/                      # Target Java Spring Boot application
-│   ├── Dockerfile                 # Multi-stage production container with non-root security
-│   ├── pom.xml                    # Maven configuration (Java 21, Actuator, JUnit 5)
-│   ├── src/main/java/             # WebController, DataProcessingService, ChaosStateService
-│   └── src/test/java/             # DataProcessingServiceTest, DemoApplicationTests
-├── selenium-tests/                # Automated browser test suite
-│   ├── pom.xml                    # Selenium 4, JUnit 5, Surefire plugin
-│   └── src/test/java/             # BaseSeleniumTest, ResilioFunctionalTest, FailureWatcher
-├── jenkins/                       # Jenkins automation configuration
-│   ├── Jenkinsfile                # 7-stage CI/CD pipeline definition
-│   └── Dockerfile.jenkins         # Jenkins image with Maven & Docker CLI
-├── frontend/                      # Phase 1 Resilio Dashboard (React, TypeScript, Tailwind)
-│   ├── Dockerfile                 # Multi-stage Nginx serving React SPA
-│   ├── src/App.tsx                # Light-first dashboard with real health & telemetry
-│   └── package.json & vite.config # Vite build setup
-└── docs/                          # Documentation suite
-    ├── SETUP_WINDOWS.md           # Exact Windows PowerShell commands
-    └── ACCEPTANCE_TEST_REPORT.md  # Detailed audit logs of all executed tests
+└── pom.xml                        # Root parent Maven project
 ```
 
 ---
 
-### 5. Quick Start (Windows PowerShell)
+## 4. Default Credentials & Access Control
 
+| Username | Role | Default Password | Permissions |
+| :--- | :--- | :--- | :--- |
+| `operator` | `ROLE_OPERATOR` | `Operator@Resilio2026!` | Trigger builds, candidate promotion, manual rollback |
+| `admin` | `ROLE_ADMIN` | `Admin@Resilio2026!` | Full administrative capabilities & user management |
+| `viewer` | `ROLE_VIEWER` | `Viewer@Resilio2026!` | Read-only telemetry access (mutations return 403) |
+
+> Initial passwords can be overridden via `OPERATOR_INITIAL_PASSWORD`, `ADMIN_INITIAL_PASSWORD`, and `VIEWER_INITIAL_PASSWORD` environment variables.
+
+---
+
+## 5. Quick Start in VS Code
+
+### Step 1: Open the Project in VS Code
+In PowerShell or your terminal, navigate to the project directory:
 ```powershell
-# 1. Build and test demo application
-cd demo-app
-.\mvnw.cmd clean test
-
-# 2. Package Spring Boot executable JAR
-.\mvnw.cmd clean package -DskipTests
-cd ..
-
-# 3. Start Selenium Chrome and Jenkins
-docker compose up -d selenium-chrome jenkins
-
-# 4. Build and start candidate container
-cd demo-app
-docker build -t resilio/demo-app:1.0.0-local .
-docker run -d --name resilio-demo-candidate -p 8080:8080 --network resilio_net resilio/demo-app:1.0.0-local
-cd ..
-
-# 5. Run Selenium functional test suite
-cd selenium-tests
-.\mvnw.cmd test -Dtarget.base.url=http://localhost:8080 -Dselenium.grid.url=http://localhost:4444/wd/hub
+code .
 ```
+
+### Step 2: Install Recommended Extensions
+When prompted by VS Code, click **Install All** for the recommended extensions (Extension Pack for Java, Spring Boot Extension Pack, and Docker).
+
+### Step 3: Run the Platform
+You can run Resilio in two simple ways:
+
+- **Option A (F5 / Run & Debug)**:
+  1. Press `Ctrl + Shift + D` (or open the **Run and Debug** view).
+  2. Select **Run RESILIO Platform (Backend)** from the dropdown.
+  3. Press **`F5`** or click the green Play button.
+
+- **Option B (VS Code Tasks)**:
+  1. Press `Ctrl + Shift + P` and type `Tasks: Run Task`.
+  2. Select **`1. Run Backend Server (Spring Boot)`**.
+
+### Step 4: Open the Control Center
+Navigate to **`http://localhost:8090`** in your browser.
+
+---
+
+## 6. Running Tests & Scenarios
+
+- **Run all 34 backend unit, integration, and security tests**:
+  ```powershell
+  cd backend
+  .\mvnw.cmd test
+  ```
+- **Run the 8 end-to-end self-healing acceptance scenarios**:
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File scripts\test_phase2_scenarios.ps1
+  ```
+- **Package the deployable backend JAR**:
+  ```powershell
+  cd backend
+  .\mvnw.cmd package -DskipTests
+  ```
+
+---
+
+## 7. License
+
+Licensed under the MIT License.

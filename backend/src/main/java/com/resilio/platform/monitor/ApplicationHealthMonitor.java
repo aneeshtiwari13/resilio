@@ -22,6 +22,7 @@ import org.springframework.web.client.RestTemplate;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -46,8 +47,10 @@ public class ApplicationHealthMonitor {
     @Value("${resilio.monitor.consecutive-failure-threshold:3}")
     private int failureThreshold;
 
-    @Value("${resilio.monitor.auto-rollback-enabled:true}")
+    @Value("${resilio.monitor.auto-rollback-enabled:false}")
     private boolean autoRollbackEnabled;
+
+    private final AtomicBoolean autoRollbackSuspended = new AtomicBoolean(false);
 
     public ApplicationHealthMonitor(
             HealthCheckLogRepository healthLogRepo,
@@ -95,6 +98,7 @@ public class ApplicationHealthMonitor {
                     }
                     consecutiveFailures.set(0);
                     lastSuccessfulCheck.set(Instant.now());
+                    autoRollbackSuspended.set(false);
                 } else {
                     status = "UNHEALTHY";
                     errorDetail = "Payload status is not UP: " + body;
@@ -151,16 +155,26 @@ public class ApplicationHealthMonitor {
                     failures, failureThreshold, status, decision.getAction());
 
             if (failures >= failureThreshold && decision.getAction() == RecoveryAction.EXECUTE_ROLLBACK_TO_KNOWN_GOOD) {
+                if (autoRollbackSuspended.get()) {
+                    log.warn("Auto-rollback currently suspended to prevent infinite flapping. Awaiting operator intervention or target service availability.");
+                    return;
+                }
+
                 if (autoRollbackEnabled) {
                     log.error("Consecutive failure threshold reached! Invoking Self-Healing Automatic Rollback...");
-                    orchestrator.executeRollback(
+                    com.resilio.platform.model.RecoveryEvent event = orchestrator.executeRollback(
                             "Application health failure threshold breached (" + failures + " consecutive failures).",
                             "Endpoint " + probeEndpoint + " returned: " + errorDetail,
                             false
                     );
                     consecutiveFailures.set(0); // Reset counter post-rollback
+
+                    if (event == null || !"VERIFIED".equalsIgnoreCase(event.getVerificationResult())) {
+                        autoRollbackSuspended.set(true);
+                        log.error("CIRCUIT BREAKER TRIPPED: Restored deployment failed verification! Auto-rollback suspended to prevent infinite flapping. Operator intervention required.");
+                    }
                 } else {
-                    log.warn("Auto-rollback disabled by operator policy. Awaiting manual intervention.");
+                    log.warn("Auto-rollback disabled by operator policy (autoRollbackEnabled=false). Awaiting manual intervention.");
                 }
             }
         }

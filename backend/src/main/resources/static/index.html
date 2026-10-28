@@ -143,6 +143,86 @@
 
       <!-- 1. OVERVIEW VIEW -->
       <section id="view-overview" class="space-y-6">
+
+        <!-- Live Self-Healing Lifecycle Demonstration Bar -->
+        <div class="bg-gradient-to-r from-card to-canvas p-6 rounded-2xl border border-emerald/30 shadow-xs space-y-4">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-full bg-emerald-light text-emerald font-bold text-[11px] uppercase tracking-wider">Live Platform Demo</span>
+                <h3 class="text-base font-bold text-charcoal">Autonomous Self-Healing Deployment Lifecycle</h3>
+              </div>
+              <p class="text-xs text-muted mt-1">Care Chronicle / Target Microservice: Blue/Green canary promotion, failure detection, failback to v1.0.0, and self-healing promotion to v2.0.0</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btn-run-lifecycle" onclick="runAutomatedLifecycle()" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald hover:bg-emerald-hover text-white text-xs font-bold transition-all shadow-xs">
+                <i data-lucide="play-circle" class="w-4 h-4 fill-current"></i>
+                ▶ Run Full Autonomous Demo
+              </button>
+            </div>
+          </div>
+
+          <!-- Step Progression Stepper -->
+          <div class="grid grid-cols-2 md:grid-cols-6 gap-2 pt-2">
+            <button onclick="triggerLifecycleStep(1)" id="step-btn-1" class="p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-emerald text-xs space-y-1">
+              <div class="text-[10px] font-bold text-muted uppercase">Step 1</div>
+              <div class="font-bold text-charcoal flex items-center justify-between">
+                <span>Baseline v1.0</span>
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              </div>
+              <div class="text-[10px] text-muted truncate">Slot BLUE Active</div>
+            </button>
+            <button onclick="triggerLifecycleStep(2)" id="step-btn-2" class="p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-emerald text-xs space-y-1">
+              <div class="text-[10px] font-bold text-muted uppercase">Step 2</div>
+              <div class="font-bold text-charcoal flex items-center justify-between">
+                <span>Deploy v2.0</span>
+                <span class="w-2 h-2 rounded-full bg-emerald"></span>
+              </div>
+              <div class="text-[10px] text-muted truncate">Promote to GREEN</div>
+            </button>
+            <button onclick="triggerLifecycleStep(3)" id="step-btn-3" class="p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-coral text-xs space-y-1">
+              <div class="text-[10px] font-bold text-muted uppercase">Step 3</div>
+              <div class="font-bold text-coral flex items-center justify-between">
+                <span>Inject Fault</span>
+                <span class="w-2 h-2 rounded-full bg-coral animate-ping"></span>
+              </div>
+              <div class="text-[10px] text-muted truncate">HTTP 500 Outage</div>
+            </button>
+            <button onclick="triggerLifecycleStep(4)" id="step-btn-4" class="p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-blue-500 text-xs space-y-1">
+              <div class="text-[10px] font-bold text-muted uppercase">Step 4</div>
+              <div class="font-bold text-blue-600 flex items-center justify-between">
+                <span>Auto-Rollback</span>
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              </div>
+              <div class="text-[10px] text-muted truncate">Failback to v1.0</div>
+            </button>
+            <button onclick="triggerLifecycleStep(5)" id="step-btn-5" class="p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-violet text-xs space-y-1">
+              <div class="text-[10px] font-bold text-muted uppercase">Step 5</div>
+              <div class="font-bold text-violet flex items-center justify-between">
+                <span>Self-Healing</span>
+                <span class="w-2 h-2 rounded-full bg-violet"></span>
+              </div>
+              <div class="text-[10px] text-muted truncate">Patch Slot GREEN</div>
+            </button>
+            <button onclick="triggerLifecycleStep(6)" id="step-btn-6" class="p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-emerald text-xs space-y-1">
+              <div class="text-[10px] font-bold text-muted uppercase">Step 6</div>
+              <div class="font-bold text-emerald flex items-center justify-between">
+                <span>Re-Promotion</span>
+                <span class="w-2 h-2 rounded-full bg-emerald"></span>
+              </div>
+              <div class="text-[10px] text-muted truncate">Promote v2.0-GOLD</div>
+            </button>
+          </div>
+
+          <!-- Live Step Explanation Box -->
+          <div id="lifecycle-explanation-box" class="p-3 bg-canvas/80 rounded-xl border border-border flex items-start gap-3 text-xs">
+            <i data-lucide="info" class="w-4 h-4 text-emerald shrink-0 mt-0.5"></i>
+            <div id="lifecycle-explanation-text" class="text-charcoal leading-relaxed">
+              Click <strong>"▶ Run Full Autonomous Demo"</strong> or select any step to watch Resilio orchestrate the entire self-healing deployment lifecycle live.
+            </div>
+          </div>
+        </div>
+
         <!-- 4 KPI Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <div class="bg-card p-5 rounded-xl border border-border shadow-xs">
@@ -873,6 +953,63 @@
           <td class="py-3 px-4 text-muted">${new Date(pipe.startTime).toLocaleTimeString()}</td>
         </tr>
       `).join('');
+      lucide.createIcons();
+    }
+
+    let isLifecycleRunning = false;
+
+    async function triggerLifecycleStep(step) {
+      // Highlight active step button
+      for (let i = 1; i <= 6; i++) {
+        const btn = document.getElementById(`step-btn-${i}`);
+        if (btn) {
+          if (i === step) {
+            btn.classList.add('ring-2', 'ring-emerald', 'bg-emerald-light/20');
+          } else {
+            btn.classList.remove('ring-2', 'ring-emerald', 'bg-emerald-light/20');
+          }
+        }
+      }
+
+      const explanation = document.getElementById('lifecycle-explanation-text');
+      explanation.innerHTML = '<span class="text-muted">Orchestrating Step ' + step + '...</span>';
+
+      try {
+        const res = await fetch(`/api/demo/lifecycle/step/${step}`, {
+          method: 'POST',
+          headers: authHeaders()
+        });
+        if (res.ok) {
+          const data = await res.json();
+          explanation.innerHTML = `<strong>${data.stepName}:</strong> ${data.description}`;
+          fetchTelemetry();
+        } else {
+          explanation.innerText = 'Failed to execute lifecycle step ' + step;
+        }
+      } catch (e) {
+        explanation.innerText = 'Network error while executing lifecycle step: ' + e.message;
+      }
+    }
+
+    async function runAutomatedLifecycle() {
+      if (isLifecycleRunning) return;
+      isLifecycleRunning = true;
+      const runBtn = document.getElementById('btn-run-lifecycle');
+      runBtn.disabled = true;
+      runBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Running Autonomous Demo...';
+      lucide.createIcons();
+
+      for (let step = 1; step <= 6; step++) {
+        await triggerLifecycleStep(step);
+        // Wait 3.0 seconds between steps for presenter and audience to observe the UI update
+        if (step < 6) {
+          await new Promise(r => setTimeout(r, 3000));
+        }
+      }
+
+      runBtn.disabled = false;
+      runBtn.innerHTML = '<i data-lucide="play-circle" class="w-4 h-4 fill-current"></i> ▶ Run Full Autonomous Demo';
+      isLifecycleRunning = false;
       lucide.createIcons();
     }
 

@@ -91,16 +91,19 @@
     <div class="p-4 m-3 bg-canvas border border-border rounded-xl space-y-2.5">
       <div class="flex items-center justify-between">
         <span class="text-[11px] font-bold text-muted uppercase tracking-wider">Access Control</span>
-        <span id="sidebar-role-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-violet-light text-violet">OPERATOR</span>
+        <span id="sidebar-role-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-light text-emerald">OPERATOR</span>
       </div>
       <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-full bg-emerald text-white flex items-center justify-center font-bold text-xs" id="sidebar-user-avatar">O</div>
-        <div class="truncate text-xs font-semibold text-charcoal" id="sidebar-username">operator</div>
+        <div class="w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center font-bold text-xs transition-colors shadow-2xs" id="sidebar-user-avatar">O</div>
+        <div>
+          <div class="truncate text-xs font-bold text-charcoal leading-none" id="sidebar-username">operator</div>
+          <div class="text-[10px] text-muted mt-0.5" id="sidebar-role-desc">SRE / Deployment Actions</div>
+        </div>
       </div>
-      <div class="flex gap-1 pt-1 border-t border-border/60">
-        <button onclick="switchUserRole('operator')" class="flex-1 py-1 rounded text-[10px] font-semibold bg-card border border-border hover:border-emerald text-charcoal text-center">Operator</button>
-        <button onclick="switchUserRole('admin')" class="flex-1 py-1 rounded text-[10px] font-semibold bg-card border border-border hover:border-violet text-charcoal text-center">Admin</button>
-        <button onclick="switchUserRole('viewer')" class="flex-1 py-1 rounded text-[10px] font-semibold bg-card border border-border hover:border-coral text-charcoal text-center">Viewer</button>
+      <div class="flex gap-1 pt-2 border-t border-border/60">
+        <button id="btn-role-operator" onclick="switchUserRole('operator')" class="flex-1 py-1 rounded text-[10px] font-bold transition-all text-center">Operator</button>
+        <button id="btn-role-admin" onclick="switchUserRole('admin')" class="flex-1 py-1 rounded text-[10px] font-bold transition-all text-center">Admin</button>
+        <button id="btn-role-viewer" onclick="switchUserRole('viewer')" class="flex-1 py-1 rounded text-[10px] font-bold transition-all text-center">Viewer</button>
       </div>
     </div>
   </aside>
@@ -115,6 +118,12 @@
       </div>
 
       <div class="flex items-center gap-3">
+        <!-- Active RBAC Permission Pill -->
+        <span id="header-role-pill" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-light text-emerald border border-emerald/20 transition-all shadow-2xs">
+          <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+          <span id="header-role-text">Operator: Full Actions Active</span>
+        </span>
+
         <!-- Startup Reconciliation Badge -->
         <span id="recon-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-teal-light text-teal border border-teal/20" title="Disk upstream configuration verified on startup">
           <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
@@ -126,14 +135,14 @@
           <span id="health-badge-text">System Healthy</span>
         </span>
 
-        <button onclick="openRollbackModal()" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-coral/30 text-coral bg-card hover:bg-coral-light text-xs font-semibold transition-colors shadow-xs">
+        <button id="btn-header-rollback" onclick="openRollbackModal()" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-coral/30 text-coral bg-card hover:bg-coral-light text-xs font-semibold transition-all shadow-xs">
           <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-          Rollback
+          <span id="btn-rollback-label">Rollback</span>
         </button>
 
-        <button onclick="triggerPipeline()" class="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-emerald hover:bg-emerald-hover text-white text-xs font-semibold transition-colors shadow-xs">
+        <button id="btn-header-pipeline" onclick="triggerPipeline()" class="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-emerald hover:bg-emerald-hover text-white text-xs font-semibold transition-all shadow-xs">
           <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
-          Trigger Pipeline
+          <span id="btn-pipeline-label">Trigger Pipeline</span>
         </button>
       </div>
     </header>
@@ -645,6 +654,74 @@
       authHeader: 'Basic ' + btoa('operator:Operator@Resilio2026!')
     };
 
+    let toastTimeout;
+    function showRoleToast(title, message, iconName, bgClass) {
+      const toast = document.getElementById('role-toast');
+      const iconEl = document.getElementById('role-toast-icon');
+      const titleEl = document.getElementById('role-toast-title');
+      const msgEl = document.getElementById('role-toast-msg');
+
+      if (!toast) return;
+
+      clearTimeout(toastTimeout);
+      iconEl.className = `w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${bgClass}`;
+      iconEl.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4 text-white"></i>`;
+      titleEl.innerText = title;
+      msgEl.innerText = message;
+      lucide.createIcons();
+
+      toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+      }, 3500);
+    }
+
+    function setMutationControlsState(allowed) {
+      const btnRollback = document.getElementById('btn-header-rollback');
+      const btnPipeline = document.getElementById('btn-header-pipeline');
+      const btnLifecycle = document.getElementById('btn-run-lifecycle');
+      const rollbackLabel = document.getElementById('btn-rollback-label');
+      const pipelineLabel = document.getElementById('btn-pipeline-label');
+
+      if (!allowed) {
+        // VIEWER: Read-only lock styling
+        if (btnRollback) {
+          btnRollback.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-border text-muted bg-canvas/60 text-xs font-semibold transition-all shadow-none opacity-60";
+          btnRollback.title = "Action locked: Viewer role has read-only access per enterprise RBAC policy.";
+          if (rollbackLabel) rollbackLabel.innerText = "Rollback (Locked)";
+        }
+        if (btnPipeline) {
+          btnPipeline.className = "flex items-center gap-2 px-4 py-1.5 rounded-lg bg-canvas border border-border text-muted text-xs font-semibold transition-all shadow-none opacity-60";
+          btnPipeline.title = "Action locked: Viewer role cannot trigger pipeline builds.";
+          if (pipelineLabel) pipelineLabel.innerText = "Pipeline (Locked)";
+        }
+        if (btnLifecycle) {
+          btnLifecycle.className = "flex items-center gap-2 px-4 py-2 rounded-xl bg-canvas border border-border text-muted text-xs font-bold transition-all shadow-none opacity-60";
+          btnLifecycle.title = "Action locked: Viewer role is read-only.";
+        }
+      } else {
+        // OPERATOR / ADMIN: Full active styling
+        if (btnRollback) {
+          btnRollback.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-coral/30 text-coral bg-card hover:bg-coral-light text-xs font-semibold transition-all shadow-xs";
+          btnRollback.title = "Trigger emergency rollback to known-good baseline";
+          if (rollbackLabel) rollbackLabel.innerText = "Rollback";
+        }
+        if (btnPipeline) {
+          btnPipeline.className = "flex items-center gap-2 px-4 py-1.5 rounded-lg bg-emerald hover:bg-emerald-hover text-white text-xs font-semibold transition-all shadow-xs";
+          btnPipeline.title = "Dispatch manual Jenkins CI/CD build";
+          if (pipelineLabel) pipelineLabel.innerText = "Trigger Pipeline";
+        }
+        if (btnLifecycle) {
+          btnLifecycle.className = "flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald hover:bg-emerald-hover text-white text-xs font-bold transition-all shadow-xs";
+          btnLifecycle.title = "Run full autonomous self-healing demonstration";
+        }
+      }
+      lucide.createIcons();
+    }
+
     function switchUserRole(roleName) {
       if (roleName === 'admin') {
         currentUser = {
@@ -652,35 +729,86 @@
           role: 'ROLE_ADMIN',
           authHeader: 'Basic ' + btoa('admin:Admin@Resilio2026!')
         };
+        showRoleToast('Identity: Admin (admin)', 'Full platform administrator access active. Rollbacks, pipelines, and all overrides enabled.', 'key', 'bg-violet');
       } else if (roleName === 'viewer') {
         currentUser = {
           username: 'viewer',
           role: 'ROLE_VIEWER',
           authHeader: 'Basic ' + btoa('viewer:Viewer@Resilio2026!')
         };
+        showRoleToast('Identity: Viewer (viewer)', 'Read-only auditor mode active. Deployments, pipelines, and rollbacks are locked (403 Forbidden).', 'lock', 'bg-amber-600');
       } else {
         currentUser = {
           username: 'operator',
           role: 'ROLE_OPERATOR',
           authHeader: 'Basic ' + btoa('operator:Operator@Resilio2026!')
         };
+        showRoleToast('Identity: Operator (operator)', 'SRE operational access active. Deployment, pipeline triggers, and manual rollbacks enabled.', 'shield-check', 'bg-emerald');
       }
       updateUserUI();
       fetchTelemetry();
     }
 
     function updateUserUI() {
-      document.getElementById('sidebar-username').innerText = currentUser.username;
-      document.getElementById('sidebar-user-avatar').innerText = currentUser.username.charAt(0).toUpperCase();
-      const badge = document.getElementById('sidebar-role-badge');
-      badge.innerText = currentUser.role.replace('ROLE_', '');
+      const usernameEl = document.getElementById('sidebar-username');
+      const avatarEl = document.getElementById('sidebar-user-avatar');
+      const roleDescEl = document.getElementById('sidebar-role-desc');
+      const roleBadge = document.getElementById('sidebar-role-badge');
+      const headerPill = document.getElementById('header-role-pill');
+      const btnOp = document.getElementById('btn-role-operator');
+      const btnAdm = document.getElementById('btn-role-admin');
+      const btnVw = document.getElementById('btn-role-viewer');
+
+      if (usernameEl) usernameEl.innerText = currentUser.username;
+      if (avatarEl) avatarEl.innerText = currentUser.username.charAt(0).toUpperCase();
+
+      // Reset base button styles
+      [btnOp, btnAdm, btnVw].forEach(b => {
+        if (b) b.className = "flex-1 py-1 rounded text-[10px] font-semibold bg-card border border-border text-charcoal text-center hover:bg-canvas transition-all";
+      });
+
       if (currentUser.role === 'ROLE_ADMIN') {
-        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-violet-light text-violet";
-      } else if (currentUser.role === 'ROLE_OPERATOR') {
-        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-light text-emerald";
+        if (btnAdm) btnAdm.className = "flex-1 py-1 rounded text-[10px] font-bold bg-violet text-white text-center shadow-xs transition-all";
+        if (avatarEl) avatarEl.className = "w-7 h-7 rounded-full bg-violet text-white flex items-center justify-center font-bold text-xs transition-colors shadow-2xs";
+        if (roleBadge) {
+          roleBadge.innerText = "ADMIN";
+          roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-violet-light text-violet border border-violet/20";
+        }
+        if (roleDescEl) roleDescEl.innerText = "Full Control & Security Overrides";
+        if (headerPill) {
+          headerPill.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-violet-light text-violet border border-violet/20 transition-all shadow-2xs";
+          headerPill.innerHTML = '<i data-lucide="key" class="w-3.5 h-3.5"></i> <span>Admin: Full Privileges & Overrides</span>';
+        }
+        setMutationControlsState(true);
+      } else if (currentUser.role === 'ROLE_VIEWER') {
+        if (btnVw) btnVw.className = "flex-1 py-1 rounded text-[10px] font-bold bg-amber-600 text-white text-center shadow-xs transition-all";
+        if (avatarEl) avatarEl.className = "w-7 h-7 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-xs transition-colors shadow-2xs";
+        if (roleBadge) {
+          roleBadge.innerText = "VIEWER";
+          roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300";
+        }
+        if (roleDescEl) roleDescEl.innerText = "Auditor • Read-Only (Mutations Blocked)";
+        if (headerPill) {
+          headerPill.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-300 transition-all shadow-2xs animate-pulse";
+          headerPill.innerHTML = '<i data-lucide="lock" class="w-3.5 h-3.5"></i> <span>Viewer: Read-Only Mode (Mutations Locked)</span>';
+        }
+        setMutationControlsState(false);
       } else {
-        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-canvas text-muted border border-border";
+        // OPERATOR
+        if (btnOp) btnOp.className = "flex-1 py-1 rounded text-[10px] font-bold bg-emerald text-white text-center shadow-xs transition-all";
+        if (avatarEl) avatarEl.className = "w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center font-bold text-xs transition-colors shadow-2xs";
+        if (roleBadge) {
+          roleBadge.innerText = "OPERATOR";
+          roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-light text-emerald border border-emerald/20";
+        }
+        if (roleDescEl) roleDescEl.innerText = "SRE / Deployment & Rollback Actions";
+        if (headerPill) {
+          headerPill.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-light text-emerald border border-emerald/20 transition-all shadow-2xs";
+          headerPill.innerHTML = '<i data-lucide="shield-check" class="w-3.5 h-3.5"></i> <span>Operator: SRE Mutations Authorized</span>';
+        }
+        setMutationControlsState(true);
       }
+      lucide.createIcons();
     }
 
     function authHeaders(extra = {}) {
@@ -1100,6 +1228,15 @@
     let isLifecycleRunning = false;
 
     async function triggerLifecycleStep(step) {
+      if (currentUser.role === 'ROLE_VIEWER') {
+        showRoleToast('403 Forbidden (RBAC)', 'Viewer role is read-only. Switch to Operator or Admin to execute deployment lifecycle steps.', 'shield-alert', 'bg-coral');
+        const explanation = document.getElementById('lifecycle-explanation-text');
+        if (explanation) {
+          explanation.innerHTML = '<span class="text-coral font-bold">⛔ RBAC Security Enforcement (HTTP 403 Forbidden):</span> The <strong>viewer</strong> role has read-only audit permissions. Mutating deployments or switching slots is blocked. Please select <strong>Operator</strong> or <strong>Admin</strong> in the sidebar.';
+        }
+        return;
+      }
+
       updateStepperUI(step);
 
       const explanation = document.getElementById('lifecycle-explanation-text');
@@ -1114,6 +1251,9 @@
         if (res.ok) {
           explanation.innerHTML = `<strong>${data.stepName}:</strong> ${data.description}`;
           fetchTelemetry();
+        } else if (res.status === 403) {
+          explanation.innerHTML = '<span class="text-coral font-bold">⛔ 403 Forbidden:</span> User role <strong>' + currentUser.role + '</strong> is strictly restricted from triggering deployment lifecycle changes.';
+          showRoleToast('403 Forbidden', 'Role ' + currentUser.role + ' is not authorized to trigger deployment changes.', 'shield-alert', 'bg-coral');
         } else {
           explanation.innerText = 'Step execution returned: ' + (data.error || ('Failed to execute lifecycle step ' + step));
         }
@@ -1123,6 +1263,12 @@
     }
 
     async function runAutomatedLifecycle() {
+      if (currentUser.role === 'ROLE_VIEWER') {
+        showRoleToast('403 Forbidden (RBAC)', 'Viewer role is read-only. Switch to Operator or Admin to execute autonomous demo.', 'shield-alert', 'bg-coral');
+        alert('⛔ 403 Forbidden: You are currently signed in as "viewer" (Read-Only Auditor).\n\nEnterprise RBAC Policy strictly prohibits Viewers from mutating deployment slots or injecting simulated faults.\n\nPlease switch to "Operator" or "Admin" in the Access Control sidebar panel.');
+        return;
+      }
+
       if (isLifecycleRunning) return;
       isLifecycleRunning = true;
       const runBtn = document.getElementById('btn-run-lifecycle');
@@ -1357,6 +1503,11 @@
     }
 
     function openRollbackModal() {
+      if (currentUser.role === 'ROLE_VIEWER') {
+        showRoleToast('403 Forbidden (RBAC)', 'Viewer role cannot trigger rollbacks. Switch to Operator or Admin.', 'shield-alert', 'bg-coral');
+        alert('⛔ 403 Forbidden: You are currently signed in as "viewer" (Read-Only Auditor).\n\nManual rollbacks require "Operator" or "Admin" role.');
+        return;
+      }
       const modal = document.getElementById('rollback-modal');
       modal.classList.remove('hidden');
       modal.classList.add('flex');
@@ -1408,6 +1559,11 @@
     }
 
     async function triggerPipeline() {
+      if (currentUser.role === 'ROLE_VIEWER') {
+        showRoleToast('403 Forbidden (RBAC)', 'Viewer role cannot trigger pipelines. Switch to Operator or Admin.', 'shield-alert', 'bg-coral');
+        alert('⛔ 403 Forbidden: You are currently signed in as "viewer" (Read-Only Auditor).\n\nPipeline dispatch requires "Operator" or "Admin" role.');
+        return;
+      }
       try {
         const res = await fetch('/api/pipelines/trigger', {
           method: 'POST',
@@ -1430,5 +1586,14 @@
     fetchTelemetry();
     setInterval(fetchTelemetry, 4000);
   </script>
+
+  <!-- Floating Role Switch Toast Notification -->
+  <div id="role-toast" class="fixed bottom-6 right-6 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border border-border text-xs font-medium bg-card max-w-sm">
+    <div id="role-toast-icon" class="w-7 h-7 rounded-full flex items-center justify-center shrink-0"></div>
+    <div>
+      <div id="role-toast-title" class="font-bold text-charcoal"></div>
+      <div id="role-toast-msg" class="text-muted text-[11px] mt-0.5"></div>
+    </div>
+  </div>
 </body>
 </html>

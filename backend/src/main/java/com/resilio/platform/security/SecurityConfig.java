@@ -51,6 +51,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/releases/**").hasAnyRole("OPERATOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/pipelines/**").hasAnyRole("OPERATOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/incidents/**").hasAnyRole("OPERATOR", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/demo/**").hasAnyRole("OPERATOR", "ADMIN")
 
                         // 3. Admin-only operations
                         .requestMatchers("/api/admin/**", "/api/users/**").hasRole("ADMIN")

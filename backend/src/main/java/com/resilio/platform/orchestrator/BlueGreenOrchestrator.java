@@ -51,6 +51,10 @@ public class BlueGreenOrchestrator {
         return activeSlot.get();
     }
 
+    public void setActiveSlot(String slot) {
+        this.activeSlot.set(slot != null ? slot.toUpperCase() : "BLUE");
+    }
+
     public String getInactiveSlot() {
         return "BLUE".equalsIgnoreCase(activeSlot.get()) ? "GREEN" : "BLUE";
     }

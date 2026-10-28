@@ -46,6 +46,16 @@ public class ReleaseRegistryService {
         String releaseId = "rel-" + versionTag + "-" + (commitSha != null && commitSha.length() >= 7 ? commitSha.substring(0, 7) : "init");
         log.info("Registering candidate release: id={}, slot={}, image={}", releaseId, slot, imageTag);
 
+        Optional<ReleaseRecord> existing = releaseRepo.findByReleaseId(releaseId);
+        if (existing.isPresent()) {
+            ReleaseRecord r = existing.get();
+            r.setDeploymentSlot(slot);
+            r.setJenkinsBuildRef(jenkinsBuildRef);
+            r.setImageTag(imageTag);
+            r.setDeployedAt(Instant.now());
+            return releaseRepo.save(r);
+        }
+
         ReleaseRecord release = new ReleaseRecord(releaseId, versionTag, commitSha, imageTag, slot, jenkinsBuildRef);
         return releaseRepo.save(release);
     }

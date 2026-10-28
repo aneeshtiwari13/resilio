@@ -165,7 +165,10 @@
           <!-- Step Progression Stepper -->
           <div class="grid grid-cols-2 md:grid-cols-6 gap-2 pt-2">
             <button onclick="triggerLifecycleStep(1)" id="step-btn-1" class="p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-emerald text-xs space-y-1">
-              <div class="text-[10px] font-bold text-muted uppercase">Step 1</div>
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-muted uppercase">Step 1</span>
+                <span id="step-badge-1" class="hidden px-1.5 py-0.5 rounded text-[9px] font-bold"></span>
+              </div>
               <div class="font-bold text-charcoal flex items-center justify-between">
                 <span>Baseline v1.0</span>
                 <span class="w-2 h-2 rounded-full bg-blue-500"></span>
@@ -173,7 +176,10 @@
               <div class="text-[10px] text-muted truncate">Slot BLUE Active</div>
             </button>
             <button onclick="triggerLifecycleStep(2)" id="step-btn-2" class="p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-emerald text-xs space-y-1">
-              <div class="text-[10px] font-bold text-muted uppercase">Step 2</div>
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-muted uppercase">Step 2</span>
+                <span id="step-badge-2" class="hidden px-1.5 py-0.5 rounded text-[9px] font-bold"></span>
+              </div>
               <div class="font-bold text-charcoal flex items-center justify-between">
                 <span>Deploy v2.0</span>
                 <span class="w-2 h-2 rounded-full bg-emerald"></span>
@@ -181,7 +187,10 @@
               <div class="text-[10px] text-muted truncate">Promote to GREEN</div>
             </button>
             <button onclick="triggerLifecycleStep(3)" id="step-btn-3" class="p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-coral text-xs space-y-1">
-              <div class="text-[10px] font-bold text-muted uppercase">Step 3</div>
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-muted uppercase">Step 3</span>
+                <span id="step-badge-3" class="hidden px-1.5 py-0.5 rounded text-[9px] font-bold"></span>
+              </div>
               <div class="font-bold text-coral flex items-center justify-between">
                 <span>Inject Fault</span>
                 <span class="w-2 h-2 rounded-full bg-coral animate-ping"></span>
@@ -189,7 +198,10 @@
               <div class="text-[10px] text-muted truncate">HTTP 500 Outage</div>
             </button>
             <button onclick="triggerLifecycleStep(4)" id="step-btn-4" class="p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-blue-500 text-xs space-y-1">
-              <div class="text-[10px] font-bold text-muted uppercase">Step 4</div>
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-muted uppercase">Step 4</span>
+                <span id="step-badge-4" class="hidden px-1.5 py-0.5 rounded text-[9px] font-bold"></span>
+              </div>
               <div class="font-bold text-blue-600 flex items-center justify-between">
                 <span>Auto-Rollback</span>
                 <span class="w-2 h-2 rounded-full bg-blue-500"></span>
@@ -197,7 +209,10 @@
               <div class="text-[10px] text-muted truncate">Failback to v1.0</div>
             </button>
             <button onclick="triggerLifecycleStep(5)" id="step-btn-5" class="p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-violet text-xs space-y-1">
-              <div class="text-[10px] font-bold text-muted uppercase">Step 5</div>
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-muted uppercase">Step 5</span>
+                <span id="step-badge-5" class="hidden px-1.5 py-0.5 rounded text-[9px] font-bold"></span>
+              </div>
               <div class="font-bold text-violet flex items-center justify-between">
                 <span>Self-Healing</span>
                 <span class="w-2 h-2 rounded-full bg-violet"></span>
@@ -205,7 +220,10 @@
               <div class="text-[10px] text-muted truncate">Patch Slot GREEN</div>
             </button>
             <button onclick="triggerLifecycleStep(6)" id="step-btn-6" class="p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-emerald text-xs space-y-1">
-              <div class="text-[10px] font-bold text-muted uppercase">Step 6</div>
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-muted uppercase">Step 6</span>
+                <span id="step-badge-6" class="hidden px-1.5 py-0.5 rounded text-[9px] font-bold"></span>
+              </div>
               <div class="font-bold text-emerald flex items-center justify-between">
                 <span>Re-Promotion</span>
                 <span class="w-2 h-2 rounded-full bg-emerald"></span>
@@ -714,6 +732,7 @@
           document.getElementById('stat-active-slot').innerText = metrics.activeSlot || 'BLUE';
           document.getElementById('stat-recovery-rate').innerText = metrics.verificationPassRate || '100%';
           document.getElementById('stat-avg-duration').innerText = (metrics.averageRecoveryDurationSeconds || 0) + 's';
+          updateTopologyDisplay(metrics.activeSlot || 'BLUE', metrics.activeVersion || '1.0.0');
         }
 
         // 2. Health Monitor
@@ -721,13 +740,28 @@
         if (hRes.ok) {
           const health = await hRes.json();
           const st = health.currentStatus || 'HEALTHY';
-          document.getElementById('stat-health-status').innerText = st;
+          const statHealthEl = document.getElementById('stat-health-status');
+          if (statHealthEl) {
+            statHealthEl.innerText = st;
+            if (st === 'HEALTHY') {
+              statHealthEl.className = 'text-2xl font-bold text-emerald';
+            } else if (st === 'UNHEALTHY') {
+              statHealthEl.className = 'text-2xl font-bold text-coral animate-pulse';
+            } else if (st === 'HEALING') {
+              statHealthEl.className = 'text-2xl font-bold text-violet animate-pulse';
+            } else {
+              statHealthEl.className = 'text-2xl font-bold text-charcoal';
+            }
+          }
           const badge = document.getElementById('health-badge');
           const badgeText = document.getElementById('health-badge-text');
-          badgeText.innerText = st === 'HEALTHY' ? 'System Healthy' : 'Health Issue Detected';
-          badge.className = `inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-            st === 'HEALTHY' ? 'bg-emerald-light text-emerald border border-emerald/20' : 'bg-coral-light text-coral border border-coral/20'
-          }`;
+          if (badge && badgeText) {
+            badgeText.innerText = st === 'HEALTHY' ? 'System Healthy' : (st === 'UNHEALTHY' ? 'UNHEALTHY (HTTP 500)' : 'Self-Healing Active');
+            badge.className = `inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+              st === 'HEALTHY' ? 'bg-emerald-light text-emerald border border-emerald/20' :
+              (st === 'UNHEALTHY' ? 'bg-coral-light text-coral border border-coral/20 animate-pulse' : 'bg-violet-light text-violet border border-violet/20 animate-pulse')
+            }`;
+          }
         }
 
         // 3. Incidents
@@ -956,20 +990,117 @@
       lucide.createIcons();
     }
 
+    function updateTopologyDisplay(activeSlot, activeVersion) {
+      const blueCard = document.getElementById('overview-blue-card');
+      const greenCard = document.getElementById('overview-green-card');
+      const blueBadge = document.getElementById('overview-blue-badge');
+      const greenBadge = document.getElementById('overview-green-badge');
+      const slotDot = document.getElementById('stat-slot-dot');
+
+      if (!blueCard || !greenCard) return;
+
+      if (activeSlot === 'GREEN') {
+        // GREEN slot is live
+        greenCard.className = "p-4 rounded-xl border-2 border-emerald bg-emerald-light/40 shadow-md ring-2 ring-emerald/30 transition-all";
+        greenBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald text-white shadow-xs animate-pulse";
+        greenBadge.innerText = `LIVE TRAFFIC (v${activeVersion || '2.0.0'})`;
+
+        blueCard.className = "p-4 rounded-xl border border-border bg-canvas/40 opacity-75 shadow-none ring-0 transition-all";
+        blueBadge.className = "px-2 py-0.5 rounded text-[10px] font-semibold bg-canvas text-muted border border-border";
+        blueBadge.innerText = "STANDBY (v1.0.0)";
+
+        if (slotDot) slotDot.className = "inline-block w-2.5 h-2.5 rounded-full bg-emerald animate-pulse";
+      } else {
+        // BLUE slot is live
+        blueCard.className = "p-4 rounded-xl border-2 border-blue-500 bg-blue-50/50 shadow-md ring-2 ring-blue-500/20 transition-all";
+        blueBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500 text-white shadow-xs";
+        blueBadge.innerText = `LIVE TRAFFIC (v${activeVersion || '1.0.0'})`;
+
+        greenCard.className = "p-4 rounded-xl border border-border bg-canvas/40 opacity-75 shadow-none ring-0 transition-all";
+        greenBadge.className = "px-2 py-0.5 rounded text-[10px] font-semibold bg-canvas text-muted border border-border";
+        greenBadge.innerText = activeVersion && activeVersion.includes('2.0') ? "STANDBY (v2.0.0)" : "STANDBY";
+
+        if (slotDot) slotDot.className = "inline-block w-2.5 h-2.5 rounded-full bg-blue-500";
+      }
+    }
+
+    function clearAllStepHighlights() {
+      for (let i = 1; i <= 6; i++) {
+        const btn = document.getElementById(`step-btn-${i}`);
+        const badge = document.getElementById(`step-badge-${i}`);
+        if (btn) {
+          btn.className = "p-2.5 rounded-xl border border-border bg-card text-left transition-all hover:border-emerald text-xs space-y-1 shadow-none";
+        }
+        if (badge) {
+          badge.className = "hidden px-1.5 py-0.5 rounded text-[9px] font-bold";
+          badge.innerText = "";
+        }
+      }
+    }
+
+    function applyStepHighlight(stepNum, ringClasses, badgeText, badgeClasses) {
+      const btn = document.getElementById(`step-btn-${stepNum}`);
+      const badge = document.getElementById(`step-badge-${stepNum}`);
+      if (btn) {
+        btn.className = `p-2.5 rounded-xl border ${ringClasses} text-left transition-all text-xs space-y-1 shadow-sm`;
+      }
+      if (badge && badgeText) {
+        badge.className = `inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${badgeClasses}`;
+        badge.innerText = badgeText;
+      }
+    }
+
+    function updateStepperUI(step) {
+      if (step === 1) {
+        clearAllStepHighlights();
+        applyStepHighlight(1, 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/50', 'v1 RUNNING NOW', 'bg-blue-500 text-white');
+        updateTopologyDisplay('BLUE', '1.0.0');
+      } else if (step === 2) {
+        clearAllStepHighlights();
+        applyStepHighlight(2, 'ring-2 ring-emerald border-emerald bg-emerald-light/30', 'v2 RUNNING NOW', 'bg-emerald text-white');
+        updateTopologyDisplay('GREEN', '2.0.0');
+      } else if (step === 3) {
+        clearAllStepHighlights();
+        applyStepHighlight(3, 'ring-2 ring-coral border-coral bg-coral-light/40 animate-pulse', 'CRITICAL 500', 'bg-coral text-white');
+        
+        // Immediate UI feedback: Outage turns health status RED
+        const statHealth = document.getElementById('stat-health-status');
+        if (statHealth) {
+          statHealth.innerText = 'UNHEALTHY';
+          statHealth.className = 'text-2xl font-bold text-coral animate-pulse';
+        }
+        const badge = document.getElementById('health-badge');
+        const badgeText = document.getElementById('health-badge-text');
+        if (badge && badgeText) {
+          badgeText.innerText = 'UNHEALTHY (HTTP 500)';
+          badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-coral-light text-coral border border-coral/20 animate-pulse';
+        }
+      } else if (step === 4) {
+        clearAllStepHighlights();
+        // Highlight Step 4 (Rollback triggered)
+        applyStepHighlight(4, 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/40', 'ROLLBACK EXEC', 'bg-blue-600 text-white');
+        // AND Highlight Step 1: traffic is back on version 1!
+        applyStepHighlight(1, 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/40', 'v1 RUNNING NOW', 'bg-blue-500 text-white animate-pulse');
+        updateTopologyDisplay('BLUE', '1.0.0');
+      } else if (step === 5) {
+        clearAllStepHighlights();
+        // Highlight Step 5 (Healing candidate in background)
+        applyStepHighlight(5, 'ring-2 ring-violet border-violet bg-violet-light/30', 'HEALING v2', 'bg-violet text-white animate-pulse');
+        // AND Step 1 remains active serving all user traffic!
+        applyStepHighlight(1, 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/40', 'v1 SERVING USERS', 'bg-blue-500 text-white');
+      } else if (step === 6) {
+        // Clear highlights from step 1, 4, 5 completely!
+        clearAllStepHighlights();
+        // Finally highlight step 6: v2 promoted and working!
+        applyStepHighlight(6, 'ring-2 ring-emerald border-emerald bg-emerald-light/40', 'v2 RUNNING NOW', 'bg-emerald text-white shadow-xs animate-pulse');
+        updateTopologyDisplay('GREEN', '2.0.0-GOLD');
+      }
+    }
+
     let isLifecycleRunning = false;
 
     async function triggerLifecycleStep(step) {
-      // Highlight active step button
-      for (let i = 1; i <= 6; i++) {
-        const btn = document.getElementById(`step-btn-${i}`);
-        if (btn) {
-          if (i === step) {
-            btn.classList.add('ring-2', 'ring-emerald', 'bg-emerald-light/20');
-          } else {
-            btn.classList.remove('ring-2', 'ring-emerald', 'bg-emerald-light/20');
-          }
-        }
-      }
+      updateStepperUI(step);
 
       const explanation = document.getElementById('lifecycle-explanation-text');
       explanation.innerHTML = '<span class="text-muted">Orchestrating Step ' + step + '...</span>';
@@ -979,12 +1110,12 @@
           method: 'POST',
           headers: authHeaders()
         });
+        const data = await res.json();
         if (res.ok) {
-          const data = await res.json();
           explanation.innerHTML = `<strong>${data.stepName}:</strong> ${data.description}`;
           fetchTelemetry();
         } else {
-          explanation.innerText = 'Failed to execute lifecycle step ' + step;
+          explanation.innerText = 'Step execution returned: ' + (data.error || ('Failed to execute lifecycle step ' + step));
         }
       } catch (e) {
         explanation.innerText = 'Network error while executing lifecycle step: ' + e.message;

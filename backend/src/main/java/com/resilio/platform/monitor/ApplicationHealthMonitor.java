@@ -40,6 +40,17 @@ public class ApplicationHealthMonitor {
     private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
     private final AtomicReference<String> currentStatus = new AtomicReference<>("UNKNOWN");
     private final AtomicReference<Instant> lastSuccessfulCheck = new AtomicReference<>(null);
+    private final AtomicReference<String> simulatedOverride = new AtomicReference<>(null);
+
+    public void setSimulatedOverride(String override) {
+        this.simulatedOverride.set(override);
+        if (override != null) {
+            this.currentStatus.set(override);
+            if ("UNHEALTHY".equalsIgnoreCase(override)) {
+                this.consecutiveFailures.set(3);
+            }
+        }
+    }
 
     @Value("${resilio.monitor.target-url:http://localhost:80}")
     private String targetUrl;
@@ -74,6 +85,15 @@ public class ApplicationHealthMonitor {
 
     @Scheduled(fixedDelayString = "${resilio.monitor.poll-interval-ms:3000}")
     public void performHealthProbe() {
+        if (simulatedOverride.get() != null) {
+            String sim = simulatedOverride.get();
+            currentStatus.set(sim);
+            if ("UNHEALTHY".equalsIgnoreCase(sim)) {
+                consecutiveFailures.set(3);
+            }
+            return;
+        }
+
         String activeSlot = orchestrator.getActiveSlot();
         String primaryEndpoint = targetUrl + "/health";
         String probeEndpoint = primaryEndpoint;

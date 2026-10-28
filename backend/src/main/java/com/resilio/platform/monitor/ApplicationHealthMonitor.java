@@ -75,7 +75,8 @@ public class ApplicationHealthMonitor {
     @Scheduled(fixedDelayString = "${resilio.monitor.poll-interval-ms:3000}")
     public void performHealthProbe() {
         String activeSlot = orchestrator.getActiveSlot();
-        String probeEndpoint = targetUrl + "/health";
+        String primaryEndpoint = targetUrl + "/health";
+        String probeEndpoint = primaryEndpoint;
         long start = System.currentTimeMillis();
 
         Integer statusCode = null;
@@ -84,13 +85,30 @@ public class ApplicationHealthMonitor {
         String errorDetail = null;
 
         try {
-            ResponseEntity<Map> response = restTemplate.getForEntity(probeEndpoint, Map.class);
+            ResponseEntity<Map> response;
+            try {
+                response = restTemplate.getForEntity(primaryEndpoint, Map.class);
+            } catch (ResourceAccessException e) {
+                // Auto-detect fallback between Care Chronicle (8000) and Demo App (8080)
+                String fallbackEndpoint = primaryEndpoint.contains(":8000") ? "http://localhost:8080/health" : "http://localhost:8000/health";
+                try {
+                    response = restTemplate.getForEntity(fallbackEndpoint, Map.class);
+                    probeEndpoint = fallbackEndpoint;
+                } catch (Exception fallbackEx) {
+                    throw e;
+                }
+            }
             latencyMs = System.currentTimeMillis() - start;
             statusCode = response.getStatusCode().value();
 
             if (response.getStatusCode().is2xxSuccessful()) {
                 Map body = response.getBody();
-                if (body != null && "UP".equalsIgnoreCase(String.valueOf(body.get("status")))) {
+                boolean isUp = body != null && (
+                        "UP".equalsIgnoreCase(String.valueOf(body.get("status"))) ||
+                        "HEALTHY".equalsIgnoreCase(String.valueOf(body.get("status"))) ||
+                        "ACTIVE".equalsIgnoreCase(String.valueOf(body.get("status")))
+                );
+                if (isUp) {
                     if (latencyMs > 2000) {
                         status = "DEGRADED"; // Latency threshold warning
                     } else {
